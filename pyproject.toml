@@ -25,6 +25,6 @@ branch = "main"
 upload_to_pypi = false
 upload_to_release = true
 changelog_file = "CHANGELOG.md"
-commit_parser = "semantic_release.commit_parser.angular:parser"
+commit_parser = "conventional"
 tag_format = "v{version}"
 changelog_sections = ["feature", "fix", "docs", "style", "refactor", "test", "chore"]
