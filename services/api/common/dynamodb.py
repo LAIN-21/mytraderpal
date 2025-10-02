@@ -59,13 +59,19 @@ class DynamoDBClient:
         return self.table.query(**query_params)
     
     def update_item(self, pk: str, sk: str, update_expression: str, 
-                   expression_values: Dict[str, Any]) -> Dict[str, Any]:
+                   expression_values: Dict[str, Any], 
+                   expression_attribute_names: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """Update an item in DynamoDB."""
-        return self.table.update_item(
-            Key={'PK': pk, 'SK': sk},
-            UpdateExpression=update_expression,
-            ExpressionAttributeValues=expression_values
-        )
+        update_params = {
+            'Key': {'PK': pk, 'SK': sk},
+            'UpdateExpression': update_expression,
+            'ExpressionAttributeValues': expression_values
+        }
+        
+        if expression_attribute_names:
+            update_params['ExpressionAttributeNames'] = expression_attribute_names
+        
+        return self.table.update_item(**update_params)
 
 
 def create_note_item(user_id: str, note_id: str, data: Dict[str, Any]) -> Dict[str, Any]:

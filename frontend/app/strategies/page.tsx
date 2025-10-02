@@ -230,7 +230,7 @@ export default function StrategiesPage() {
             </Card>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-2">
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -244,47 +244,40 @@ export default function StrategiesPage() {
               </Card>
             ) : (
               strategies.map((strategy) => (
-                <Card key={strategy.strategyId}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">{strategy.name}</CardTitle>
-                        <CardDescription>
-                          {strategy.market} • {strategy.timeframe}
-                        </CardDescription>
+                <Card key={strategy.strategyId} className="mb-2">
+                  <CardContent className="pt-4">
+                    <div className="flex justify-between items-center">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                          <h3 className="font-semibold text-base">{strategy.name}</h3>
+                          <div className="flex gap-2 text-xs">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                              {strategy.market}
+                            </span>
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
+                              {strategy.timeframe}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1 ml-4">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleEdit(strategy)}
+                          className="h-7 w-7 p-0"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-3 w-3" />
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleDelete(strategy.strategyId)}
+                          className="h-7 w-7 p-0"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {strategy.dsl && (
-                      <div className="mt-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Code className="h-4 w-4" />
-                          <span className="text-sm font-medium">Strategy Rules</span>
-                        </div>
-                        <pre className="bg-muted p-3 rounded text-sm overflow-x-auto">
-                          {JSON.stringify(strategy.dsl, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-                    <div className="mt-4 text-sm text-muted-foreground">
-                      Created: {new Date(strategy.createdAt).toLocaleDateString()}
                     </div>
                   </CardContent>
                 </Card>

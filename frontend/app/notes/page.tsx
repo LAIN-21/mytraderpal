@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { AuthGuard } from '@/lib/auth-guard'
 import { apiClient } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -16,13 +17,14 @@ import { ArrowLeft, Plus, Edit, Trash2 } from 'lucide-react'
 
 const noteSchema = z.object({
   date: z.string().min(1, 'Date is required'),
-  text: z.string().min(1, 'Text is required'),
+  text: z.string().optional(),
   direction: z.string().optional(),
   session: z.string().optional(),
-  risk: z.number().optional(),
-  win_amount: z.number().optional(),
+  risk: z.string().optional(),
+  win_amount: z.string().optional(),
   tags: z.array(z.string()).optional(),
   strategyId: z.string().optional(),
+  hit_miss: z.string().optional(),
 })
 
 type NoteFormData = z.infer<typeof noteSchema>
@@ -31,22 +33,38 @@ interface Note {
   noteId: string
   userId: string
   date: string
-  text: string
+  text?: string
   direction?: string
   session?: string
   risk?: number
   win_amount?: number
   tags?: string[]
   strategyId?: string
+  hit_miss?: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface Strategy {
+  strategyId: string
+  userId: string
+  name: string
+  market: string
+  timeframe: string
   createdAt: string
   updatedAt: string
 }
 
 export default function NotesPage() {
   const [notes, setNotes] = useState<Note[]>([])
+  const [strategies, setStrategies] = useState<Strategy[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingNote, setEditingNote] = useState<Note | null>(null)
+  const [direction, setDirection] = useState<string>('')
+  const [session, setSession] = useState<string>('')
+  const [strategyId, setStrategyId] = useState<string>('')
+  const [hitMiss, setHitMiss] = useState<string>('')
 
   const {
     register,
@@ -57,8 +75,18 @@ export default function NotesPage() {
     resolver: zodResolver(noteSchema),
   })
 
+  // Create an efficient lookup map for strategies
+  const strategyMap = useMemo(() => {
+    const map = new Map<string, Strategy>()
+    strategies.forEach(strategy => {
+      map.set(strategy.strategyId, strategy)
+    })
+    return map
+  }, [strategies])
+
   useEffect(() => {
     loadNotes()
+    loadStrategies()
   }, [])
 
   const loadNotes = async () => {
@@ -74,20 +102,56 @@ export default function NotesPage() {
     }
   }
 
+  const loadStrategies = async () => {
+    try {
+      const response = await apiClient.getStrategies()
+      console.log('Strategies response:', response)
+      setStrategies(response.strategies || [])
+    } catch (error) {
+      console.error('Failed to load strategies:', error)
+    }
+  }
+
   const onSubmit = async (data: NoteFormData) => {
     try {
-      console.log('Saving note with data:', data)
+      console.log('Form validation passed, data:', data)
+      console.log('State variables:', { direction, session, strategyId, hitMiss })
+      const noteData = {
+        ...data,
+        risk: data.risk && data.risk !== '' ? parseFloat(data.risk) : undefined,
+        win_amount: data.win_amount && data.win_amount !== '' ? parseFloat(data.win_amount) : undefined,
+      }
+      
+      // Only add dropdown fields if they have values
+      if (direction && direction !== '') {
+        noteData.direction = direction
+      }
+      if (session && session !== '') {
+        noteData.session = session
+      }
+      if (strategyId && strategyId !== '') {
+        noteData.strategyId = strategyId
+      }
+      if (hitMiss && hitMiss !== '') {
+        noteData.hit_miss = hitMiss
+      }
+      console.log('Saving note with processed data:', noteData)
+      console.log('hit_miss field specifically:', noteData.hit_miss)
       if (editingNote) {
         console.log('Updating existing note:', editingNote.noteId)
-        await apiClient.updateNote(editingNote.noteId, data)
+        await apiClient.updateNote(editingNote.noteId, noteData)
         console.log('Note updated successfully')
       } else {
         console.log('Creating new note')
-        const result = await apiClient.createNote(data)
+        const result = await apiClient.createNote(noteData)
         console.log('Note created successfully:', result)
       }
       
       reset()
+      setDirection('')
+      setSession('')
+      setStrategyId('')
+      setHitMiss('')
       setShowForm(false)
       setEditingNote(null)
       loadNotes()
@@ -101,15 +165,19 @@ export default function NotesPage() {
     setEditingNote(note)
     reset({
       date: note.date,
-      text: note.text,
-      direction: note.direction || '',
-      session: note.session || '',
-      risk: note.risk,
-      win_amount: note.win_amount,
+      text: note.text || '',
+      risk: note.risk?.toString() || '',
+      win_amount: note.win_amount?.toString() || '',
       tags: note.tags || [],
-      strategyId: note.strategyId || '',
     })
+    setDirection(note.direction || '')
+    setSession(note.session || '')
+    setStrategyId(note.strategyId || '')
+    setHitMiss(note.hit_miss || '')
     setShowForm(true)
+    
+    // Scroll to the top of the page where the form is
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleDelete = async (noteId: string) => {
@@ -125,6 +193,10 @@ export default function NotesPage() {
 
   const handleCancel = () => {
     reset()
+    setDirection('')
+    setSession('')
+    setStrategyId('')
+    setHitMiss('')
     setShowForm(false)
     setEditingNote(null)
   }
@@ -158,7 +230,9 @@ export default function NotesPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={handleSubmit(onSubmit, (errors) => {
+                  console.log('Form validation errors:', errors)
+                })} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="date">Date *</Label>
@@ -176,19 +250,43 @@ export default function NotesPage() {
                     </div>
                     <div>
                       <Label htmlFor="direction">Direction</Label>
-                      <Input
-                        id="direction"
-                        placeholder="e.g., Long, Short"
-                        {...register('direction')}
-                      />
+                      <Select value={direction} onValueChange={setDirection}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select direction" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Long">Long</SelectItem>
+                          <SelectItem value="Short">Short</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor="session">Session</Label>
-                      <Input
-                        id="session"
-                        placeholder="e.g., London, New York"
-                        {...register('session')}
-                      />
+                      <Select value={session} onValueChange={setSession}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select session" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Asia">Asia</SelectItem>
+                          <SelectItem value="London">London</SelectItem>
+                          <SelectItem value="New York">New York</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="hitMiss">Hit/Miss</Label>
+                      <Select value={hitMiss} onValueChange={(value) => {
+                        console.log('Hit/Miss dropdown changed to:', value)
+                        setHitMiss(value)
+                      }}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select result" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Hit">Hit</SelectItem>
+                          <SelectItem value="Miss">Miss</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor="risk">Risk Amount</Label>
@@ -197,7 +295,7 @@ export default function NotesPage() {
                         type="number"
                         step="0.01"
                         placeholder="0.00"
-                        {...register('risk', { valueAsNumber: true })}
+                        {...register('risk')}
                       />
                     </div>
                     <div>
@@ -207,33 +305,55 @@ export default function NotesPage() {
                         type="number"
                         step="0.01"
                         placeholder="0.00"
-                        {...register('win_amount', { valueAsNumber: true })}
+                        {...register('win_amount')}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="strategyId">Strategy ID</Label>
-                      <Input
-                        id="strategyId"
-                        placeholder="Optional strategy reference"
-                        {...register('strategyId')}
-                      />
+                      <Label htmlFor="strategyId">Strategy</Label>
+                      {strategies.length > 0 ? (
+                        <Select value={strategyId} onValueChange={setStrategyId}>
+                          <SelectTrigger>
+                            <div className="flex w-full items-center justify-between">
+                              <span className="block truncate">
+                                {strategyId && strategyMap.has(strategyId) ? (() => {
+                                  const selectedStrategy = strategyMap.get(strategyId)!
+                                  return `${selectedStrategy.name} (${selectedStrategy.market} - ${selectedStrategy.timeframe})`
+                                })() : "Select strategy (optional)"}
+                              </span>
+                            </div>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">No strategy</SelectItem>
+                            {strategies.map((strategy) => (
+                              <SelectItem key={strategy.strategyId} value={strategy.strategyId}>
+                                {strategy.name} ({strategy.market} - {strategy.timeframe})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">
+                            No strategies found. Create your first strategy to start tracking your trading approach.
+                          </p>
+                          <Link href="/strategies">
+                            <Button type="button" variant="outline" size="sm">
+                              Create Strategy
+                            </Button>
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
                   <div>
-                    <Label htmlFor="text">Note Text *</Label>
+                    <Label htmlFor="text">Note Text</Label>
                     <Textarea
                       id="text"
                       placeholder="Describe your trade, market observations, or lessons learned..."
                       rows={4}
                       {...register('text')}
-                      className={errors.text ? 'border-destructive' : ''}
                     />
-                    {errors.text && (
-                      <p className="text-sm text-destructive mt-1">
-                        {errors.text.message}
-                      </p>
-                    )}
                   </div>
 
                   <div className="flex gap-2">
@@ -243,13 +363,26 @@ export default function NotesPage() {
                     <Button type="button" variant="outline" onClick={handleCancel}>
                       Cancel
                     </Button>
+                    <Button 
+                      type="button" 
+                      variant="secondary" 
+                      onClick={() => {
+                        reset()
+                        setDirection('')
+                        setSession('')
+                        setStrategyId('')
+                        setHitMiss('')
+                      }}
+                    >
+                      Clear Form
+                    </Button>
                   </div>
                 </form>
               </CardContent>
             </Card>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-2">
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -262,60 +395,94 @@ export default function NotesPage() {
                 </CardContent>
               </Card>
             ) : (
-              notes.map((note) => (
-                <Card key={note.noteId}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">{note.date}</CardTitle>
-                        {note.direction && (
-                          <CardDescription>
-                            Direction: {note.direction}
-                            {note.session && ` • Session: ${note.session}`}
-                          </CardDescription>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(note)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(note.noteId)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="whitespace-pre-wrap">{note.text}</p>
-                    {(note.risk || note.win_amount) && (
-                      <div className="mt-4 flex gap-4 text-sm text-muted-foreground">
-                        {note.risk && <span>Risk: ${note.risk}</span>}
-                        {note.win_amount && <span>Win: ${note.win_amount}</span>}
-                      </div>
-                    )}
-                    {note.tags && note.tags.length > 0 && (
-                      <div className="mt-2 flex gap-1 flex-wrap">
-                        {note.tags.map((tag, index) => (
-                          <span
-                            key={index}
-                            className="px-2 py-1 bg-secondary text-secondary-foreground rounded text-xs"
+              notes.map((note) => {
+                // Efficiently get the strategy name for this note
+                const strategy = note.strategyId ? strategyMap.get(note.strategyId) : undefined
+                const strategyName = strategy ? strategy.name : note.strategyId
+                
+                return (
+                  <Card key={note.noteId} className="mb-3">
+                    <CardContent className="pt-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="font-semibold text-base">{note.date}</h3>
+                            <div className="flex gap-2 text-xs">
+                              {note.direction && (
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                                  {note.direction}
+                                </span>
+                              )}
+                              {note.session && (
+                                <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
+                                  {note.session}
+                                </span>
+                              )}
+                              {note.hit_miss && (
+                                <span className={`px-2 py-1 rounded ${
+                                  note.hit_miss === 'Hit' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {note.hit_miss}
+                                </span>
+                              )}
+                              {note.strategyId && (
+                                <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded">
+                                  {strategyName}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {note.text && (
+                            <p className="text-sm text-gray-700 mb-2 whitespace-pre-wrap">
+                              {note.text}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-4 text-xs text-gray-500">
+                            {(note.risk || note.win_amount) && (
+                              <div className="flex gap-3">
+                                {note.risk && <span>Risk: ${note.risk}</span>}
+                                {note.win_amount && <span>Win: ${note.win_amount}</span>}
+                              </div>
+                            )}
+                            {note.tags && note.tags.length > 0 && (
+                              <div className="flex gap-1 flex-wrap">
+                                {note.tags.map((tag, index) => (
+                                  <span
+                                    key={index}
+                                    className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-1 ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(note)}
+                            className="h-7 w-7 p-0"
                           >
-                            {tag}
-                          </span>
-                        ))}
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(note.noteId)}
+                            className="h-7 w-7 p-0"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                )
+              })
             )}
           </div>
         </main>

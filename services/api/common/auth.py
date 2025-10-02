@@ -12,8 +12,8 @@ def get_user_id_from_request(request: Request) -> str:
     dev_mode = os.getenv('DEV_MODE', 'false').lower() == 'true'
     if dev_mode:
         dev_user = request.headers.get('X-MTP-Dev-User')
-        if dev_user == 'dev':
-            return 'dev-user'
+        if dev_user:
+            return dev_user
     
     # Extract JWT from Authorization header
     auth_header = request.headers.get('Authorization')
