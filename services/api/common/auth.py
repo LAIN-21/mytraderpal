@@ -1,3 +1,5 @@
+# This file is not used in the project, it is kept in case we need to use FastAPI in the future
+
 import os
 import json
 from typing import Optional

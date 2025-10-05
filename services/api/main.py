@@ -1,614 +1,284 @@
 import json
-import boto3
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
+from common.auth_lambda import get_user_id_from_event
+from common.dynamodb import db
+
+# Optional: ULID for sortable unique IDs; else fallback to uuid4
+try:
+    import ulid
+    def new_id(prefix: str) -> str:
+        return f"{prefix}-{ulid.new()}"
+except Exception:
+    import uuid
+    def new_id(prefix: str) -> str:
+        return f"{prefix}-{uuid.uuid4()}"
+
 def decimal_default(obj):
-    """JSON serializer for objects not serializable by default json code"""
     if isinstance(obj, Decimal):
         return float(obj)
     raise TypeError
 
-# Initialize DynamoDB
-dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table(os.environ['TABLE_NAME'])
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+def _cors_headers(origin: str = "*"):
+    # In prod you should reflect/whitelist exact origins
+    return {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
+    }
+
+def _ok(body: dict, origin: str = "*", code: int = 200):
+    return {'statusCode': code, 'headers': _cors_headers(origin), 'body': json.dumps(body, default=decimal_default)}
+
+def _err(code: int, message: str, origin: str = "*"):
+    return {'statusCode': code, 'headers': _cors_headers(origin), 'body': json.dumps({'message': message})}
+
+def _get_origin(event: dict) -> str:
+    # Optional: echo origin if you want stricter CORS later
+    return (event.get('headers') or {}).get('origin') or '*'
 
 def handler(event, context):
-    """
-    Simple Lambda handler for testing
-    """
     try:
-        # Get the HTTP method and path
         http_method = event.get('httpMethod', event.get('requestContext', {}).get('http', {}).get('method', 'GET'))
         path = event.get('path', event.get('rawPath', '/'))
+        origin = _get_origin(event)
+        qs = event.get('queryStringParameters') or {}
+
+        # Auth (prod-safe + dev override)
+        try:
+            user_id = get_user_id_from_event(event)
+        except PermissionError:
+            # Allow unauthenticated only for /v1/health
+            if path == '/v1/health':
+                return _ok({'message': 'API is healthy'}, origin)
+            return _err(401, 'Unauthorized', origin)
+
+        # ---- Health ----
+        if path == '/v1/health' and http_method == 'GET':
+            return _ok({'message': 'API is healthy'}, origin)
         
-        print(f"Received request: {http_method} {path}")
-        print(f"Event: {json.dumps(event, indent=2)}")
+        # ---- Notes ----
+        if path == '/v1/notes' and http_method == 'POST':
+            body = json.loads(event.get('body') or '{}')
+            note_id = new_id("note")
+            item = db.create_note_item(user_id, note_id, body)
+            db.put_item(item)
+            return _ok({'message': 'Note created successfully', 'noteId': note_id}, origin, 201)
         
-        # Handle different endpoints
-        if path == '/v1/health':
-            return {
-                'statusCode': 200,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                },
-                'body': json.dumps({'message': 'API is healthy'})
-            }
-        
-        elif path == '/v1/notes' and http_method == 'POST':
-            # Create a new note
-            body = json.loads(event.get('body', '{}'))
-            print(f"Creating note with body: {body}")
-            print(f"hit_miss field: {body.get('hit_miss', 'NOT_FOUND')}")
-            
-            # Get user ID from JWT token (simplified for now)
-            user_id = 'test-user-123'  # This should come from JWT token
-            
-            note_id = f"note-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            
-            # Create note item
-            note_item = {
-                'PK': f'USER#{user_id}',
-                'SK': f'NOTE#{note_id}',
-                'entityType': 'NOTE',
-                'noteId': note_id,
-                'date': body.get('date', datetime.now().isoformat()),
-                'text': body.get('text', ''),
-                'createdAt': datetime.now().isoformat(),
-                'updatedAt': datetime.now().isoformat(),
-                'GSI1PK': f'NOTE#{user_id}',
-                'GSI1SK': f"{body.get('date', datetime.now().isoformat())}#{note_id}"
-            }
-            
-            # Only add optional fields if they have values
-            optional_fields = ['direction', 'session', 'risk', 'win_amount', 'strategyId', 'hit_miss']
-            for field in optional_fields:
-                value = body.get(field)
-                if value is not None and value != '':
-                    note_item[field] = value
-            print(f"Note item being created: {note_item}")
-            print(f"hit_miss value in note_item: {note_item.get('hit_miss', 'NOT_FOUND')}")
-            
-            # Save to DynamoDB
-            table.put_item(Item=note_item)
-            
-            return {
-                'statusCode': 201,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                },
-                'body': json.dumps({
-                    'message': 'Note created successfully',
-                    'noteId': note_id
-                })
-            }
-        
-        elif path == '/v1/notes' and http_method == 'GET':
-            # List notes
-            user_id = 'test-user-123'  # This should come from JWT token
-            
-            # Query notes using GSI1
-            response = table.query(
-                IndexName='GSI1',
-                KeyConditionExpression='GSI1PK = :gsi1pk',
-                ExpressionAttributeValues={
-                    ':gsi1pk': f'NOTE#{user_id}'
-                },
-                ScanIndexForward=False  # Sort by date descending
-            )
-            
-            notes = []
-            for item in response.get('Items', []):
+        if path == '/v1/notes' and http_method == 'GET':
+            limit = int(qs.get('limit', '50'))
+            lek = qs.get('lastKey')
+            last_key = json.loads(lek) if lek else None
+            resp = db.query_gsi1(gsi1pk=f'NOTE#{user_id}', limit=limit, last_evaluated_key=last_key)
+            items = []
+            for it in resp.get('Items', []):
                 note = {
-                    'noteId': item.get('noteId'),
-                    'date': item.get('date'),
-                    'text': item.get('text', ''),
-                    'createdAt': item.get('createdAt'),
-                    'updatedAt': item.get('updatedAt')
+                    'noteId': it.get('noteId'),
+                    'date': it.get('date'),
+                    'text': it.get('text', ''),
+                    'createdAt': it.get('createdAt'),
+                    'updatedAt': it.get('updatedAt'),
                 }
-                
-                # Only include optional fields if they exist
-                optional_fields = ['direction', 'session', 'risk', 'win_amount', 'strategyId', 'hit_miss']
-                for field in optional_fields:
-                    if field in item:
-                        note[field] = item[field]
-                
-                notes.append(note)
-            
-            return {
-                'statusCode': 200,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                },
-                'body': json.dumps({
-                    'notes': notes
-                }, default=decimal_default)
-            }
+                for f in ["direction", "session", "risk", "win_amount", "strategyId", "hit_miss"]:
+                    if f in it:
+                        note[f] = it[f]
+                items.append(note)
+            out = {'notes': items}
+            if 'LastEvaluatedKey' in resp:
+                out['lastKey'] = resp['LastEvaluatedKey']
+            return _ok(out, origin)
         
-        elif path == '/v1/strategies' and http_method == 'POST':
-            # Create a new strategy
-            body = json.loads(event.get('body', '{}'))
-            
-            # Get user ID from JWT token (simplified for now)
-            user_id = 'test-user-123'  # This should come from JWT token
-            
-            strategy_id = f"strategy-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            
-            # Create strategy item
-            strategy_item = {
-                'PK': f'USER#{user_id}',
-                'SK': f'STRAT#{strategy_id}',
-                'entityType': 'STRATEGY',
-                'strategyId': strategy_id,
-                'name': body.get('name', ''),
-                'market': body.get('market', ''),
-                'timeframe': body.get('timeframe', ''),
-                'dsl': json.dumps(body.get('dsl', {})),  # Store as JSON string
-                'createdAt': datetime.now().isoformat(),
-                'updatedAt': datetime.now().isoformat(),
-                'GSI1PK': f'STRAT#{user_id}',
-                'GSI1SK': f"{datetime.now().isoformat()}#{strategy_id}"
-            }
-            
-            # Save to DynamoDB
-            table.put_item(Item=strategy_item)
-            
-            return {
-                'statusCode': 201,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                },
-                'body': json.dumps({
-                    'message': 'Strategy created successfully',
-                    'strategyId': strategy_id
-                })
-            }
+        # ---- Strategies ----
+        if path == '/v1/strategies' and http_method == 'POST':
+            body = json.loads(event.get('body') or '{}')
+            strategy_id = new_id("strategy")
+            item = db.create_strategy_item(user_id, strategy_id, body)
+            db.put_item(item)
+            return _ok({'message': 'Strategy created successfully', 'strategyId': strategy_id}, origin, 201)
         
-        elif path == '/v1/strategies' and http_method == 'GET':
-            # List strategies
-            user_id = 'test-user-123'  # This should come from JWT token
-            
-            # Query strategies using GSI1
-            response = table.query(
-                IndexName='GSI1',
-                KeyConditionExpression='GSI1PK = :gsi1pk',
-                ExpressionAttributeValues={
-                    ':gsi1pk': f'STRAT#{user_id}'
-                },
-                ScanIndexForward=False  # Sort by date descending
-            )
-            
-            strategies = []
-            for item in response.get('Items', []):
-                # Parse DSL from JSON string back to object
+        if path == '/v1/strategies' and http_method == 'GET':
+            limit = int(qs.get('limit', '50'))
+            lek = qs.get('lastKey')
+            last_key = json.loads(lek) if lek else None
+            resp = db.query_gsi1(gsi1pk=f'STRAT#{user_id}', limit=limit, last_evaluated_key=last_key)
+            items = []
+            for it in resp.get('Items', []):
                 dsl = {}
                 try:
-                    dsl = json.loads(item.get('dsl', '{}'))
-                except:
+                    # If stored as string
+                    if isinstance(it.get('dsl'), str):
+                        dsl = json.loads(it['dsl'])
+                    elif isinstance(it.get('dsl'), dict):
+                        dsl = it['dsl']
+                except Exception:
                     dsl = {}
-                
-                strategies.append({
-                    'strategyId': item.get('strategyId'),
-                    'name': item.get('name'),
-                    'market': item.get('market'),
-                    'timeframe': item.get('timeframe'),
+                items.append({
+                    'strategyId': it.get('strategyId'),
+                    'name': it.get('name'),
+                    'market': it.get('market'),
+                    'timeframe': it.get('timeframe'),
                     'dsl': dsl,
-                    'createdAt': item.get('createdAt'),
-                    'updatedAt': item.get('updatedAt')
+                    'createdAt': it.get('createdAt'),
+                    'updatedAt': it.get('updatedAt')
                 })
-            
-            return {
-                'statusCode': 200,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                },
-                'body': json.dumps({
-                    'strategies': strategies
-                }, default=decimal_default)
-            }
-
-        elif path.startswith('/v1/strategies/') and http_method == 'GET':
-            # Get a specific strategy
+            out = {'strategies': items}
+            if 'LastEvaluatedKey' in resp:
+                out['lastKey'] = resp['LastEvaluatedKey']
+            return _ok(out, origin)
+        
+        if path.startswith('/v1/strategies/') and http_method == 'GET':
             strategy_id = path.split('/')[-1]
-            user_id = 'test-user-123'  # This should come from JWT token
-
+            pk, sk = f'USER#{user_id}', f'STRAT#{strategy_id}'
+            it = db.get_item(pk, sk)
+            if not it:
+                return _err(404, 'Strategy not found', origin)
+            dsl = {}
             try:
-                response = table.get_item(
-                    Key={
-                        'PK': f'USER#{user_id}',
-                        'SK': f'STRAT#{strategy_id}'
-                    }
-                )
-
-                if 'Item' not in response:
-                    return {
-                        'statusCode': 404,
-                        'headers': {
-                            'Content-Type': 'application/json',
-                            'Access-Control-Allow-Origin': '*',
-                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                        },
-                        'body': json.dumps({'message': 'Strategy not found'})
-                    }
-
-                item = response['Item']
-                # Parse DSL JSON
+                d = it.get('dsl')
+                dsl = json.loads(d) if isinstance(d, str) else (d or {})
+            except Exception:
                 dsl = {}
-                try:
-                    dsl = json.loads(item.get('dsl', '{}'))
-                except:
-                    dsl = {}
-
-                strategy = {
-                    'strategyId': item.get('strategyId'),
-                    'name': item.get('name'),
-                    'market': item.get('market'),
-                    'timeframe': item.get('timeframe'),
+            return _ok({
+                'strategy': {
+                    'strategyId': it.get('strategyId'),
+                    'name': it.get('name'),
+                    'market': it.get('market'),
+                    'timeframe': it.get('timeframe'),
                     'dsl': dsl,
-                    'createdAt': item.get('createdAt'),
-                    'updatedAt': item.get('updatedAt'),
+                    'createdAt': it.get('createdAt'),
+                    'updatedAt': it.get('updatedAt'),
                 }
-
-                return {
-                    'statusCode': 200,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                    },
-                    'body': json.dumps({'strategy': strategy}, default=decimal_default)
-                }
-
-            except Exception as e:
-                print(f"Error getting strategy: {str(e)}")
-                return {
-                    'statusCode': 500,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                    },
-                    'body': json.dumps({'message': f'Error getting strategy: {str(e)}'})
-                }
-
-        elif path.startswith('/v1/strategies/') and http_method == 'PUT':
-            # Update a strategy
+            }, origin)
+        
+        if path.startswith('/v1/strategies/') and http_method in ('PUT', 'PATCH'):
             strategy_id = path.split('/')[-1]
-            body = json.loads(event.get('body', '{}'))
-            user_id = 'test-user-123'  # This should come from JWT token
+            body = json.loads(event.get('body') or '{}')
+            pk, sk = f'USER#{user_id}', f'STRAT#{strategy_id}'
+            if not db.get_item(pk, sk):
+                return _err(404, 'Strategy not found', origin)
 
-            try:
-                # Ensure item exists
-                response = table.get_item(Key={'PK': f'USER#{user_id}', 'SK': f'STRAT#{strategy_id}'})
-                if 'Item' not in response:
-                    return {
-                        'statusCode': 404,
-                        'headers': {
-                            'Content-Type': 'application/json',
-                            'Access-Control-Allow-Origin': '*',
-                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                        },
-                        'body': json.dumps({'message': 'Strategy not found'})
-                    }
+            update_expression = "SET #updatedAt = :updatedAt"
+            eav = {':updatedAt': _now_iso()}
+            ean = {'#updatedAt': 'updatedAt'}
 
-                update_expression = 'SET #updatedAt = :updatedAt'
-                expression_values = {':updatedAt': datetime.now().isoformat()}
-                attribute_names = {'#updatedAt': 'updatedAt'}
+            for field in ["name", "market", "timeframe", "dsl"]:
+                if field in body and body[field] not in (None, ""):
+                    ean[f'#{field}'] = field
+                    eav[f':{field}'] = json.dumps(body['dsl']) if field == 'dsl' and not isinstance(body['dsl'], str) else body[field]
+                    update_expression += f", #{field} = :{field}"
 
-                # Updatable fields
-                if 'name' in body and body['name'] != '':
-                    attribute_names['#name'] = 'name'
-                    expression_values[':name'] = body['name']
-                    update_expression += ', #name = :name'
-                if 'market' in body and body['market'] != '':
-                    attribute_names['#market'] = 'market'
-                    expression_values[':market'] = body['market']
-                    update_expression += ', #market = :market'
-                if 'timeframe' in body and body['timeframe'] != '':
-                    attribute_names['#timeframe'] = 'timeframe'
-                    expression_values[':timeframe'] = body['timeframe']
-                    update_expression += ', #timeframe = :timeframe'
-                if 'dsl' in body and body['dsl'] is not None:
-                    attribute_names['#dsl'] = 'dsl'
-                    expression_values[':dsl'] = json.dumps(body['dsl'])
-                    update_expression += ', #dsl = :dsl'
-
-                table.update_item(
-                    Key={'PK': f'USER#{user_id}', 'SK': f'STRAT#{strategy_id}'},
-                    UpdateExpression=update_expression,
-                    ExpressionAttributeValues=expression_values,
-                    ExpressionAttributeNames=attribute_names,
-                )
-
-                return {
-                    'statusCode': 200,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                    },
-                    'body': json.dumps({'message': 'Strategy updated successfully'})
-                }
-
-            except Exception as e:
-                print(f"Error updating strategy: {str(e)}")
-                return {
-                    'statusCode': 500,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                    },
-                    'body': json.dumps({'message': f'Error updating strategy: {str(e)}'})
-                }
-
-        elif path.startswith('/v1/strategies/') and http_method == 'DELETE':
-            # Delete a strategy
-            strategy_id = path.split('/')[-1]
-            user_id = 'test-user-123'  # This should come from JWT token
-
-            try:
-                # Check if strategy exists
-                response = table.get_item(
-                    Key={'PK': f'USER#{user_id}', 'SK': f'STRAT#{strategy_id}'}
-                )
-
-                if 'Item' not in response:
-                    return {
-                        'statusCode': 404,
-                        'headers': {
-                            'Content-Type': 'application/json',
-                            'Access-Control-Allow-Origin': '*',
-                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                        },
-                        'body': json.dumps({'message': 'Strategy not found'})
-                    }
-
-                table.delete_item(Key={'PK': f'USER#{user_id}', 'SK': f'STRAT#{strategy_id}'})
-
-                return {
-                    'statusCode': 200,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                    },
-                    'body': json.dumps({'message': 'Strategy deleted successfully'})
-                }
-
-            except Exception as e:
-                print(f"Error deleting strategy: {str(e)}")
-                return {
-                    'statusCode': 500,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                    },
-                    'body': json.dumps({'message': f'Error deleting strategy: {str(e)}'})
-                }
+            updated = db.update_item(pk, sk, update_expression, eav, ean)['Attributes']
+            return _ok({'message': 'Strategy updated successfully'}, origin)
         
-        elif path.startswith('/v1/notes/') and http_method == 'PUT':
-            # Update a note
+        if path.startswith('/v1/notes/') and http_method in ('PUT', 'PATCH'):
             note_id = path.split('/')[-1]
-            body = json.loads(event.get('body', '{}'))
-            print(f"Updating note {note_id} with body: {body}")
-            print(f"hit_miss field: {body.get('hit_miss', 'NOT_FOUND')}")
-            
-            user_id = 'test-user-123'  # This should come from JWT token
-            
-            # Check if note exists
-            try:
-                response = table.get_item(
-                    Key={
-                        'PK': f'USER#{user_id}',
-                        'SK': f'NOTE#{note_id}'
-                    }
-                )
-                
-                if 'Item' not in response:
-                    return {
-                        'statusCode': 404,
-                        'headers': {
-                            'Content-Type': 'application/json',
-                            'Access-Control-Allow-Origin': '*',
-                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                        },
-                        'body': json.dumps({'message': 'Note not found'})
-                    }
-                
-                # Build update expression using ExpressionAttributeNames to avoid reserved words
-                update_expression = "SET #updatedAt = :updatedAt"
-                expression_values = {
-                    ':updatedAt': datetime.now().isoformat()
-                }
-                attribute_names = {
-                    '#updatedAt': 'updatedAt'
-                }
+            body = json.loads(event.get('body') or '{}')
 
-                # Add fields to update (map all attribute names to placeholders)
-                fields_to_update = ['date', 'text', 'direction', 'session', 'risk', 'win_amount', 'strategyId', 'hit_miss']
-                for field in fields_to_update:
-                    if field in body and body[field] is not None and body[field] != '':
-                        placeholder_name = f"#{field}"
-                        attribute_names[placeholder_name] = field
-                        update_expression += f", {placeholder_name} = :{field}"
-                        expression_values[f':{field}'] = body[field]
+            # Ensure exists
+            pk, sk = f'USER#{user_id}', f'NOTE#{note_id}'
+            existing = db.get_item(pk, sk)
+            if not existing:
+                return _err(404, 'Note not found', origin)
 
-                # Update GSI1SK if date changed
-                if 'date' in body and body['date']:
-                    attribute_names['#GSI1SK'] = 'GSI1SK'
-                    update_expression += ", #GSI1SK = :gsi1sk"
-                    expression_values[':gsi1sk'] = f"{body['date']}#{note_id}"
-                
-                # Update the item
-                table.update_item(
-                    Key={
-                        'PK': f'USER#{user_id}',
-                        'SK': f'NOTE#{note_id}'
-                    },
-                    UpdateExpression=update_expression,
-                    ExpressionAttributeValues=expression_values,
-                    ExpressionAttributeNames=attribute_names
-                )
-                
-                # Get the updated item
-                updated_response = table.get_item(
-                    Key={
-                        'PK': f'USER#{user_id}',
-                        'SK': f'NOTE#{note_id}'
-                    }
-                )
-                
-                updated_note = updated_response['Item']
-                
-                # Build response note with only existing fields
-                response_note = {
-                    'noteId': updated_note.get('noteId'),
-                    'date': updated_note.get('date'),
-                    'text': updated_note.get('text', ''),
-                    'createdAt': updated_note.get('createdAt'),
-                    'updatedAt': updated_note.get('updatedAt')
-                }
-                
-                # Only include optional fields if they exist
-                optional_fields = ['direction', 'session', 'risk', 'win_amount', 'strategyId', 'hit_miss']
-                for field in optional_fields:
-                    if field in updated_note:
-                        response_note[field] = updated_note[field]
-                
-                return {
-                    'statusCode': 200,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                    },
-                    'body': json.dumps({
-                        'message': 'Note updated successfully',
-                        'note': response_note
-                    }, default=decimal_default)
-                }
-                
-            except Exception as e:
-                print(f"Error updating note: {str(e)}")
-                return {
-                    'statusCode': 500,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                    },
-                    'body': json.dumps({'message': f'Error updating note: {str(e)}'})
-                }
-        
-        elif path.startswith('/v1/notes/') and http_method == 'DELETE':
-            # Delete a note
-            note_id = path.split('/')[-1]
-            user_id = 'test-user-123'  # This should come from JWT token
-            
-            try:
-                # Check if note exists
-                response = table.get_item(
-                    Key={
-                        'PK': f'USER#{user_id}',
-                        'SK': f'NOTE#{note_id}'
-                    }
-                )
-                
-                if 'Item' not in response:
-                    return {
-                        'statusCode': 404,
-                        'headers': {
-                            'Content-Type': 'application/json',
-                            'Access-Control-Allow-Origin': '*',
-                            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                        },
-                        'body': json.dumps({'message': 'Note not found'})
-                    }
-                
-                # Delete the item
-                table.delete_item(
-                    Key={
-                        'PK': f'USER#{user_id}',
-                        'SK': f'NOTE#{note_id}'
-                    }
-                )
-                
-                return {
-                    'statusCode': 200,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                    },
-                    'body': json.dumps({'message': 'Note deleted successfully'})
-                }
-                
-            except Exception as e:
-                print(f"Error deleting note: {str(e)}")
-                return {
-                    'statusCode': 500,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                    },
-                    'body': json.dumps({'message': f'Error deleting note: {str(e)}'})
-                }
-        
-        else:
-            return {
-                'statusCode': 404,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-                },
-                'body': json.dumps({'message': 'Not found'})
+            update_expression = "SET #updatedAt = :updatedAt"
+            eav = {':updatedAt': _now_iso()}
+            ean = {'#updatedAt': 'updatedAt'}
+
+            for field in ["date", "text", "direction", "session", "risk", "win_amount", "strategyId", "hit_miss"]:
+                if field in body and body[field] not in (None, ""):
+                    ean[f'#{field}'] = field
+                    eav[f':{field}'] = body[field]
+                    update_expression += f", #{field} = :{field}"
+
+            # If date changed, update GSI1SK
+            if 'date' in body and body['date']:
+                ean['#GSI1SK'] = 'GSI1SK'
+                eav[':gsi1sk'] = f"{body['date']}#{note_id}"
+                update_expression += ", #GSI1SK = :gsi1sk"
+
+            updated = db.update_item(pk, sk, update_expression, eav, ean)['Attributes']
+
+            # Build response
+            resp_note = {
+                'noteId': updated.get('noteId'),
+                'date': updated.get('date'),
+                'text': updated.get('text', ''),
+                'createdAt': updated.get('createdAt'),
+                'updatedAt': updated.get('updatedAt')
             }
+            for f in ["direction", "session", "risk", "win_amount", "strategyId", "hit_miss"]:
+                if f in updated:
+                    resp_note[f] = updated[f]
+
+            return _ok({'message': 'Note updated successfully', 'note': resp_note}, origin)
+        
+        if path.startswith('/v1/notes/') and http_method == 'DELETE':
+            note_id = path.split('/')[-1]
+            pk, sk = f'USER#{user_id}', f'NOTE#{note_id}'
+            if not db.get_item(pk, sk):
+                return _err(404, 'Note not found', origin)
+            db.delete_item(pk, sk)
+            return _ok({'message': 'Note deleted successfully'}, origin)
+        
+        if path.startswith('/v1/strategies/') and http_method == 'DELETE':
+            strategy_id = path.split('/')[-1]
+            pk, sk = f'USER#{user_id}', f'STRAT#{strategy_id}'
+            if not db.get_item(pk, sk):
+                return _err(404, 'Strategy not found', origin)
+            db.delete_item(pk, sk)
+            return _ok({'message': 'Strategy deleted successfully'}, origin)
+        
+        # ---- Reporting (simple evaluable feature) ----
+        if path == '/v1/reports/notes-summary' and http_method == 'GET':
+            # Optional date filtering (assumes client uses ISO)
+            date_from = (qs.get('from') or "")
+            date_to = (qs.get('to') or "")
+            # We list from GSI1 (NOTE#{user}) and then filter dates if provided.
+            resp = db.query_gsi1(f'NOTE#{user_id}', limit=int(qs.get('limit', '200')))
+            notes = resp.get('Items', [])
+            def in_range(d: str) -> bool:
+                if not d: return True
+                if date_from and d < date_from: return False
+                if date_to and d > date_to: return False
+                return True
+            filtered = [n for n in notes if in_range(n.get('date', ''))]
+
+            total = len(filtered)
+            by_hit = {}
+            by_session = {}
+            win_sum, win_count = 0.0, 0
+            for n in filtered:
+                hm = n.get('hit_miss', 'UNKNOWN')
+                by_hit[hm] = by_hit.get(hm, 0) + 1
+                sess = n.get('session', 'UNKNOWN')
+                by_session[sess] = by_session.get(sess, 0) + 1
+                if 'win_amount' in n:
+                    try:
+                        win_sum += float(n['win_amount'])
+                        win_count += 1
+                    except Exception:
+                        pass
+
+            avg_win = (win_sum / win_count) if win_count else 0.0
+            return _ok({
+                'summary': {
+                    'totalNotes': total,
+                    'byHitMiss': by_hit,
+                    'bySession': by_session,
+                    'averageWinAmount': avg_win
+                }
+            }, origin)
+
+        # ---- Fallback ----
+        return _err(404, 'Not found', origin)
             
     except Exception as e:
+        # Basic error path
         print(f"Error: {str(e)}")
-        return {
-            'statusCode': 500,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
-            },
-            'body': json.dumps({'message': f'Internal server error: {str(e)}'})
-        }
+        return _err(500, f'Internal server error: {str(e)}', _get_origin(event))

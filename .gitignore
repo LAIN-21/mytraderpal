@@ -1,9 +1,11 @@
 # Dependencies
 node_modules/
 */node_modules/
+**/node_modules/
 
 # CDK
 cdk.out/
+cdk/**/cdk.out/
 *.d.ts
 !test/*.d.ts
 
@@ -20,6 +22,7 @@ out/
 
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -42,8 +45,11 @@ wheels/
 
 # Virtual environments
 venv/
+**/venv/
 env/
 ENV/
+.venv/
+**/.venv/
 
 # IDE
 .vscode/
@@ -53,6 +59,7 @@ ENV/
 
 # OS
 .DS_Store
+**/.DS_Store
 Thumbs.db
 
 # Logs
@@ -67,8 +74,29 @@ pids
 *.seed
 *.pid.lock
 
-# Coverage directory used by tools like istanbul
+# Coverage directories
 coverage/
+htmlcov/
+**/htmlcov/
+.coverage
+**/.coverage
+
+# Testing
+.pytest_cache/
+**/.pytest_cache/
+.tox/
+.nox/
 
 # AWS
 .aws/
+
+# Package managers
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/

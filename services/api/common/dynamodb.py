@@ -1,8 +1,19 @@
-import boto3
 import os
-from typing import Dict, Any, List, Optional
-from datetime import datetime
-import json
+from typing import Dict, Any, List, Optional, Tuple
+from datetime import datetime, timezone
+
+import boto3
+from boto3.dynamodb.conditions import Key
+
+
+ALLOWED_NOTE_FIELDS = {
+    "date", "text", "direction", "session", "risk", "win_amount", "strategyId", "hit_miss"
+}
+ALLOWED_STRATEGY_FIELDS = {"name", "market", "timeframe", "dsl"}
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 class DynamoDBClient:
@@ -10,105 +21,96 @@ class DynamoDBClient:
         self.table_name = os.getenv('TABLE_NAME', 'mtp_app')
         self.dynamodb = boto3.resource('dynamodb')
         self.table = self.dynamodb.Table(self.table_name)
-    
+
+    # ---------- primitives ----------
     def put_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
-        """Put an item into DynamoDB."""
-        return self.table.put_item(Item=item)
-    
+        """Idempotent create (fails if the item already exists)."""
+        return self.table.put_item(
+            Item=item,
+            ConditionExpression='attribute_not_exists(PK) AND attribute_not_exists(SK)'
+        )
+
     def get_item(self, pk: str, sk: str) -> Optional[Dict[str, Any]]:
-        """Get an item from DynamoDB."""
-        response = self.table.get_item(Key={'PK': pk, 'SK': sk})
-        return response.get('Item')
-    
+        resp = self.table.get_item(Key={'PK': pk, 'SK': sk})
+        return resp.get('Item')
+
     def delete_item(self, pk: str, sk: str) -> Dict[str, Any]:
-        """Delete an item from DynamoDB."""
         return self.table.delete_item(Key={'PK': pk, 'SK': sk})
-    
-    def query_items(self, pk: str, sk_condition: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Query items by partition key."""
-        query_params = {
-            'KeyConditionExpression': 'PK = :pk'
-        }
-        expression_values = {':pk': pk}
-        
-        if sk_condition:
-            query_params['KeyConditionExpression'] += ' AND begins_with(SK, :sk)'
-            expression_values[':sk'] = sk_condition
-        
-        query_params['ExpressionAttributeValues'] = expression_values
-        
-        response = self.table.query(**query_params)
-        return response.get('Items', [])
-    
-    def query_gsi1(self, gsi1pk: str, limit: Optional[int] = None, 
-                   last_evaluated_key: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Query GSI1 for listing items."""
-        query_params = {
-            'IndexName': 'GSI1',
-            'KeyConditionExpression': 'GSI1PK = :gsi1pk',
-            'ExpressionAttributeValues': {':gsi1pk': gsi1pk},
-            'ScanIndexForward': False,  # Sort by GSI1SK descending
-        }
-        
-        if limit:
-            query_params['Limit'] = limit
-        
-        if last_evaluated_key:
-            query_params['ExclusiveStartKey'] = last_evaluated_key
-        
-        return self.table.query(**query_params)
-    
-    def update_item(self, pk: str, sk: str, update_expression: str, 
-                   expression_values: Dict[str, Any], 
-                   expression_attribute_names: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
-        """Update an item in DynamoDB."""
-        update_params = {
+
+    def update_item(self, pk: str, sk: str, update_expression: str,
+                    expression_values: Dict[str, Any],
+                    expression_attribute_names: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+        params = {
             'Key': {'PK': pk, 'SK': sk},
             'UpdateExpression': update_expression,
-            'ExpressionAttributeValues': expression_values
+            'ExpressionAttributeValues': expression_values,
+            'ReturnValues': 'ALL_NEW'
         }
-        
         if expression_attribute_names:
-            update_params['ExpressionAttributeNames'] = expression_attribute_names
-        
-        return self.table.update_item(**update_params)
+            params['ExpressionAttributeNames'] = expression_attribute_names
+        return self.table.update_item(**params)
+
+    # ---------- queries ----------
+    def query_pk(self, pk: str, sk_begins_with: Optional[str] = None,
+                 limit: int = 50,
+                 last_evaluated_key: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        expr = Key('PK').eq(pk)
+        if sk_begins_with:
+            expr = expr & Key('SK').begins_with(sk_begins_with)
+
+        params = {'KeyConditionExpression': expr, 'Limit': limit}
+        if last_evaluated_key:
+            params['ExclusiveStartKey'] = last_evaluated_key
+        return self.table.query(**params)
+
+    def query_gsi1(self, gsi1pk: str, limit: int = 50,
+                   last_evaluated_key: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        params = {
+            'IndexName': 'GSI1',
+            'KeyConditionExpression': Key('GSI1PK').eq(gsi1pk),
+            'ScanIndexForward': False,
+            'Limit': limit
+        }
+        if last_evaluated_key:
+            params['ExclusiveStartKey'] = last_evaluated_key
+        return self.table.query(**params)
+
+    # ---------- builders ----------
+    def create_note_item(self, user_id: str, note_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        now = _now_iso()
+        payload = {k: v for k, v in (data or {}).items()
+                   if k in ALLOWED_NOTE_FIELDS and v not in (None, "")}
+        date_val = payload.get("date", now)
+        return {
+            'PK': f'USER#{user_id}',
+            'SK': f'NOTE#{note_id}',
+            'GSI1PK': f'NOTE#{user_id}',
+            'GSI1SK': f'{date_val}#{note_id}',
+            'entityType': 'NOTE',
+            'noteId': note_id,
+            'userId': user_id,
+            'createdAt': now,
+            'updatedAt': now,
+            **payload
+        }
+
+    def create_strategy_item(self, user_id: str, strategy_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        now = _now_iso()
+        payload = {k: v for k, v in (data or {}).items()
+                   if k in ALLOWED_STRATEGY_FIELDS and v not in (None, "")}
+        return {
+            'PK': f'USER#{user_id}',
+            'SK': f'STRAT#{strategy_id}',
+            'GSI1PK': f'STRAT#{user_id}',
+            'GSI1SK': f'{now}#{strategy_id}',
+            'entityType': 'STRATEGY',
+            'strategyId': strategy_id,
+            'userId': user_id,
+            'createdAt': now,
+            'updatedAt': now,
+            **payload
+        }
 
 
-def create_note_item(user_id: str, note_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
-    """Create a note item for DynamoDB."""
-    now = datetime.utcnow().isoformat()
-    
-    item = {
-        'PK': f'USER#{user_id}',
-        'SK': f'NOTE#{note_id}',
-        'GSI1PK': f'NOTE#{user_id}',
-        'GSI1SK': f'{data.get("date", now)}#{note_id}',
-        'entityType': 'NOTE',
-        'noteId': note_id,
-        'userId': user_id,
-        'createdAt': now,
-        'updatedAt': now,
-        **data
-    }
-    
-    return item
-
-
-def create_strategy_item(user_id: str, strategy_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
-    """Create a strategy item for DynamoDB."""
-    now = datetime.utcnow().isoformat()
-    
-    item = {
-        'PK': f'USER#{user_id}',
-        'SK': f'STRAT#{strategy_id}',
-        'GSI1PK': f'STRAT#{user_id}',
-        'GSI1SK': f'{now}#{strategy_id}',
-        'entityType': 'STRATEGY',
-        'strategyId': strategy_id,
-        'userId': user_id,
-        'createdAt': now,
-        'updatedAt': now,
-        **data
-    }
-    
-    return item
+# Reusable module-level client (warm Lambda reuse)
+db = DynamoDBClient()
