@@ -215,9 +215,10 @@ docker run -p 9000:8080 \
   mytraderpal-backend
 
 # Frontend
-docker build -f infra/docker/Dockerfile.frontend -t mytraderpal-frontend .
-docker run -p 3000:3000 \
-  -e NEXT_PUBLIC_API_URL=http://localhost:9000 \
+cd src/frontend-react
+docker build -f infra/docker/Dockerfile -t mytraderpal-frontend .
+docker run -p 3000:80 \
+  -e VITE_API_URL=http://localhost:9000 \
   mytraderpal-frontend
 
 # Or use docker-compose
@@ -229,7 +230,7 @@ docker-compose up
 The project includes a GitHub Actions CI/CD pipeline (`.github/workflows/ci.yml`) that:
 
 1. **Tests Backend**: Runs pytest with coverage (fails if < 70%)
-2. **Tests Frontend**: Lints and builds Next.js app
+2. **Tests Frontend**: Lints and builds React app (Vite)
 3. **Builds Docker Images**: Creates container images
 4. **Deploys** (main branch only): Deploys CDK stack to AWS
 

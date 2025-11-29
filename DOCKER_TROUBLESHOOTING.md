@@ -1,145 +1,160 @@
 # Docker Troubleshooting Guide
 
-## Issue: Frontend Build Stuck
+## Issue: Docker Hanging on Image Pulls
 
-### Problem
-Docker build hangs when building the frontend, especially at "loading metadata" step.
+If Docker is hanging when pulling base images (like `node:18-alpine` or `nginx:alpine`), try these solutions:
 
-### Solutions
-
-#### Solution 1: Use Development Mode (Recommended for Local Dev)
+### Solution 1: Pull Images Separately First
 
 ```bash
-# Use the development docker-compose (faster, no build step)
-docker-compose -f docker-compose.dev.yml up
-
-# Or just run frontend locally (even faster)
-cd src/frontend && npm run dev
-```
-
-#### Solution 2: Fix Production Build
-
-The issue was with Next.js standalone output. I've fixed it:
-
-1. **Stop current build:**
-   ```bash
-   docker-compose down
-   docker system prune -f  # Optional: clean up
-   ```
-
-2. **Rebuild with fixed Dockerfile:**
-   ```bash
-   docker-compose build --no-cache frontend
-   docker-compose up
-   ```
-
-#### Solution 3: Build Frontend Separately
-
-```bash
-# Build frontend image separately to see errors
-docker build -f infra/docker/Dockerfile.frontend -t mytraderpal-frontend .
-
-# If it hangs, try with more verbose output
-docker build --progress=plain -f infra/docker/Dockerfile.frontend -t mytraderpal-frontend .
-```
-
-#### Solution 4: Skip Frontend in Docker (Fastest for Development)
-
-```bash
-# Run only backend in Docker
-docker-compose up api
-
-# Run frontend locally in another terminal
-cd src/frontend
-npm install
-npm run dev
-```
-
-## Common Issues
-
-### 1. Network Issues Pulling Images
-
-```bash
-# Check Docker network
-docker network ls
-
-# Try pulling image manually
+# Pull base images before building
 docker pull node:18-alpine
+docker pull nginx:alpine
+docker pull public.ecr.aws/lambda/python:3.11
 
-# If still stuck, use different registry or mirror
+# Then run docker-compose
+docker-compose up --build
 ```
 
-### 2. Build Context Too Large
+### Solution 2: Use the Fix Script
 
 ```bash
-# Check .dockerignore exists
-cat .dockerignore
-
-# Ensure node_modules is ignored
-echo "node_modules/" >> .dockerignore
-echo ".next/" >> .dockerignore
+./scripts/fix_docker_hang.sh
+docker-compose up --build
 ```
 
-### 3. Out of Disk Space
+### Solution 3: Restart Docker Desktop
+
+1. Quit Docker Desktop completely
+2. Restart Docker Desktop
+3. Wait for it to fully start
+4. Try again: `docker-compose up --build`
+
+### Solution 4: Clear Docker Build Cache
 
 ```bash
-# Check disk space
-docker system df
-
-# Clean up
-docker system prune -a
-```
-
-### 4. Environment Variables Not Set
-
-The build might hang if required env vars are missing. Use defaults:
-
-```bash
-# Set defaults in .env file
-NEXT_PUBLIC_USER_POOL_ID=test
-NEXT_PUBLIC_USER_POOL_CLIENT_ID=test
-NEXT_PUBLIC_AWS_REGION=us-east-1
-```
-
-## Quick Fixes
-
-### For Development (Fastest)
-
-```bash
-# Option 1: Frontend only (recommended)
-cd src/frontend && npm run dev
-
-# Option 2: Backend in Docker, frontend local
-docker-compose up api
-# In another terminal:
-cd src/frontend && npm run dev
-```
-
-### For Production Build
-
-```bash
-# Clean build
+# Stop all containers
 docker-compose down
+
+# Prune build cache
+docker builder prune -f
+
+# Try again
+docker-compose up --build
+```
+
+### Solution 5: Check Docker Network Settings
+
+If you're behind a corporate firewall or VPN:
+
+1. Open Docker Desktop → Settings → Resources → Network
+2. Try disabling/enabling network features
+3. Or configure proxy settings if needed
+
+### Solution 6: Use Alternative Base Images (Temporary)
+
+If the alpine images keep hanging, you can temporarily use non-alpine versions:
+
+Edit `src/frontend-react/infra/docker/Dockerfile`:
+```dockerfile
+# Change from:
+FROM node:18-alpine AS builder
+
+# To:
+FROM node:18-slim AS builder
+```
+
+And:
+```dockerfile
+# Change from:
+FROM nginx:alpine
+
+# To:
+FROM nginx:latest
+```
+
+**Note**: This will create larger images but should pull faster.
+
+### Solution 7: Build with No Cache
+
+```bash
 docker-compose build --no-cache
 docker-compose up
 ```
 
-## Recommended Development Setup
+### Solution 8: Check Docker Logs
 
-**Best approach for local development:**
+```bash
+# View Docker daemon logs
+tail -f ~/Library/Containers/com.docker.docker/Data/log/host/Docker.log
 
-1. **Terminal 1 - Backend (if needed):**
-   ```bash
-   docker-compose up api
-   # Or use: ./scripts/dev_backend.sh
-   ```
+# Or on Linux:
+journalctl -u docker.service -f
+```
 
-2. **Terminal 2 - Frontend:**
-   ```bash
-   cd src/frontend
-   npm install
-   npm run dev
-   ```
+### Solution 9: Increase Docker Resources
 
-This avoids Docker build issues and gives you hot reload!
+If Docker Desktop is low on resources:
 
+1. Docker Desktop → Settings → Resources
+2. Increase:
+   - Memory (at least 4GB recommended)
+   - CPUs (at least 2)
+   - Disk image size
+
+### Solution 10: Use Docker BuildKit
+
+```bash
+# Enable BuildKit
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+# Then build
+docker-compose up --build
+```
+
+## Quick Fix Command
+
+Run this to try multiple fixes at once:
+
+```bash
+# Stop everything
+docker-compose down
+
+# Pull images separately
+docker pull node:18-alpine
+docker pull nginx:alpine
+docker pull public.ecr.aws/lambda/python:3.11
+
+# Clear cache
+docker builder prune -f
+
+# Build with BuildKit
+DOCKER_BUILDKIT=1 docker-compose up --build
+```
+
+## Still Having Issues?
+
+1. **Check Docker is running**: `docker info`
+2. **Check disk space**: `df -h` (Docker needs free space)
+3. **Check network**: Try `ping docker.io`
+4. **Restart Docker**: Quit and restart Docker Desktop
+5. **Check Docker Desktop logs**: Help → Troubleshoot → View logs
+
+## Alternative: Build Without Docker
+
+If Docker keeps hanging, you can run locally without Docker:
+
+### Backend Only (Lambda Local)
+```bash
+./scripts/dev_backend.sh
+```
+
+### Frontend Only (Vite Dev Server)
+```bash
+cd src/frontend-react
+npm install
+npm run dev
+```
+
+This won't use Docker but will let you develop locally.

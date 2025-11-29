@@ -9,7 +9,7 @@ MyTraderPal is a serverless trading journal application built on AWS with a mode
 ```
 ┌─────────────────┐
 │   Frontend      │
-│   (Next.js)     │
+│   (React + Vite)│
 │   Port: 3000    │
 └────────┬────────┘
          │ HTTPS
@@ -70,7 +70,7 @@ MyTraderPal is a serverless trading journal application built on AWS with a mode
 ```
 ┌──────────────┐
 │   Frontend    │
-│  (Next.js)   │
+│  (React)   │
 └──────┬───────┘
        │
        │ REST API
@@ -148,7 +148,7 @@ MyTraderPal is a serverless trading journal application built on AWS with a mode
 - **API**: REST API via API Gateway
 
 ### Frontend
-- **Framework**: Next.js 14
+- **Framework**: React 18 + Vite
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **UI Components**: Radix UI

@@ -35,7 +35,7 @@ For the MyTraderPal trading journal application, I chose the **Agile/Scrum** SDL
 
 #### Phase 1: Planning & Requirements (Assignment 1)
 - Defined core features: Notes CRUD, Strategies CRUD
-- Chose technology stack: Python Lambda, DynamoDB, Next.js
+- Chose technology stack: Python Lambda, DynamoDB, React + Vite
 - Created architecture diagram
 
 #### Phase 2: Design
@@ -45,7 +45,7 @@ For the MyTraderPal trading journal application, I chose the **Agile/Scrum** SDL
 
 #### Phase 3: Implementation (Assignment 1)
 - Built backend API with Lambda
-- Created frontend with Next.js
+- Created frontend with React + Vite
 - Implemented authentication with Cognito
 
 #### Phase 4: Testing

@@ -134,13 +134,13 @@ npm install
 
 #### 2. Environment Variables
 
-Create `src/frontend/.env.local`:
+Create `src/frontend-react/.env`:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:9000
-NEXT_PUBLIC_USER_POOL_ID=your-pool-id
-NEXT_PUBLIC_USER_POOL_CLIENT_ID=your-client-id
-NEXT_PUBLIC_AWS_REGION=us-east-1
+VITE_API_URL=http://localhost:9000
+VITE_USER_POOL_ID=your-pool-id
+VITE_USER_POOL_CLIENT_ID=your-client-id
+VITE_AWS_REGION=us-east-1
 ```
 
 #### 3. Run Development Server
@@ -240,8 +240,8 @@ cd src/frontend && npm run dev
 
 ### Adding a New Frontend Page
 
-1. Create page in `src/frontend/app/`
-2. Add route in Next.js app router
+1. Create page in `src/frontend-react/src/pages/`
+2. Add route in React Router
 3. Update navigation if needed
 
 ### Debugging
@@ -253,7 +253,7 @@ cd src/frontend && npm run dev
 
 **Frontend:**
 - Use browser DevTools
-- Check Next.js terminal output
+- Check Vite dev server terminal output
 - Use React DevTools extension
 
 ## Troubleshooting
@@ -273,14 +273,15 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 ### Frontend Issues
 
 **API Connection Errors:**
-- Check `NEXT_PUBLIC_API_URL` in `.env.local`
+- Check `VITE_API_URL` in `.env`
 - Ensure backend is running
 - Check CORS settings
 
 **Build Errors:**
 ```bash
-# Clear Next.js cache
-rm -rf src/frontend/.next
+# Clear Vite cache
+rm -rf src/frontend-react/dist
+rm -rf src/frontend-react/node_modules/.vite
 npm run build
 ```
 

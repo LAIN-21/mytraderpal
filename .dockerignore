@@ -1,5 +1,85 @@
-node_modules/
-.next/
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+README.md
+CHANGELOG.md
+ENV_SETUP.md
+ASSIGNMENT_CHECKLIST.md
+TEST_REPORT.md
+CONTAINERIZATION_STATUS.md
+CHANGES_SUMMARY.md
+
+# Python
 __pycache__/
-*.pyc
-.git/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.next/
+dist/
+
+# Testing
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+.tox/
+*.cover
+coverage.xml
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# CI/CD
+.github/
+.github/workflows/
+
+# Infrastructure
+infra/
+cdk.out/
+*.template.json
+
+# Monitoring
+monitoring/
+
+# Scripts
+scripts/
+
+# Tests
+tests/
+test_*.py
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Other
+*.tmp
+*.bak
+*.swp

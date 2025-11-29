@@ -37,7 +37,7 @@ mytraderpal/
 │   │       ├── __init__.py
 │   │       └── dynamodb.py
 │   └── frontend/            # Frontend (to be moved)
-│       └── ... (Next.js app)
+│       └── ... (React + Vite app)
 ├── tests/
 │   ├── unit/                # Unit tests
 │   └── integration/         # Integration tests

@@ -55,14 +55,12 @@ This guide will walk you through deploying the MyTraderPal application to AWS.
    cp env.example .env.local
    ```
 
-4. **Update `.env.local`** with the values from CDK deployment:
+4. **Update `.env`** with the values from CDK deployment:
    ```env
-   NEXT_PUBLIC_AWS_REGION=us-east-1
-   NEXT_PUBLIC_API_URL=https://your-api-id.execute-api.us-east-1.amazonaws.com
-   NEXT_PUBLIC_USER_POOL_ID=us-east-1_xxxxxxxxx
-   NEXT_PUBLIC_USER_POOL_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
-   NEXT_PUBLIC_COGNITO_DOMAIN=mytraderpal-xxxxxxxxx.auth.us-east-1.amazoncognito.com
-   NEXT_PUBLIC_OAUTH_REDIRECT=http://localhost:3000/login
+   VITE_AWS_REGION=us-east-1
+   VITE_API_URL=https://your-api-id.execute-api.us-east-1.amazonaws.com
+   VITE_USER_POOL_ID=us-east-1_xxxxxxxxx
+   VITE_USER_POOL_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
    ```
 
 5. **Start development server**:
@@ -72,19 +70,17 @@ This guide will walk you through deploying the MyTraderPal application to AWS.
 
 ## Step 3: Deploy Frontend to AWS Amplify
 
-1. **Connect your repository** to AWS Amplify Hosting
-2. **Set build settings**:
+1. **Connect your repository** to AWS Amplify Hosting (or use Docker deployment)
+2. **Set build settings** (if using Amplify):
    - Build command: `npm run build`
-   - Base directory: `frontend`
-   - Output directory: `.next`
+   - Base directory: `src/frontend-react`
+   - Output directory: `dist`
 
-3. **Set environment variables** in Amplify console:
-   - `NEXT_PUBLIC_AWS_REGION`
-   - `NEXT_PUBLIC_API_URL`
-   - `NEXT_PUBLIC_USER_POOL_ID`
-   - `NEXT_PUBLIC_USER_POOL_CLIENT_ID`
-   - `NEXT_PUBLIC_COGNITO_DOMAIN`
-   - `NEXT_PUBLIC_OAUTH_REDIRECT` (update to your Amplify domain)
+3. **Set environment variables** in deployment platform:
+   - `VITE_AWS_REGION`
+   - `VITE_API_URL`
+   - `VITE_USER_POOL_ID`
+   - `VITE_USER_POOL_CLIENT_ID`
 
 4. **Update Cognito OAuth settings**:
    - Go to Cognito User Pool in AWS Console

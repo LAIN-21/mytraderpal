@@ -2,7 +2,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: infra/docker/Dockerfile
     environment:
       - TABLE_NAME=mtp_app
       - DEV_MODE=true
