@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - TABLE_NAME=mtp_app
+      - DEV_MODE=true
+      - AWS_REGION=us-east-1
+    ports:
+      - "9000:8080"
+    # For local testing with DynamoDB Local
+    # volumes:
+    #   - ./src/app:/var/task
+
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://api:9000
+      - NEXT_PUBLIC_USER_POOL_ID=${NEXT_PUBLIC_USER_POOL_ID}
+      - NEXT_PUBLIC_USER_POOL_CLIENT_ID=${NEXT_PUBLIC_USER_POOL_CLIENT_ID}
+      - NEXT_PUBLIC_AWS_REGION=${NEXT_PUBLIC_AWS_REGION}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+

@@ -1,0 +1,2 @@
+"""MyTraderPal Application Package."""
+

@@ -1,0 +1,44 @@
+{
+  "dashboard": {
+    "title": "MyTraderPal Metrics",
+    "panels": [
+      {
+        "title": "Request Rate",
+        "targets": [
+          {
+            "expr": "rate(requests_total[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ]
+      },
+      {
+        "title": "Error Rate",
+        "targets": [
+          {
+            "expr": "rate(errors_total[5m])",
+            "legendFormat": "Errors/sec"
+          }
+        ]
+      },
+      {
+        "title": "Average Latency",
+        "targets": [
+          {
+            "expr": "request_latency_seconds_avg",
+            "legendFormat": "Latency (seconds)"
+          }
+        ]
+      },
+      {
+        "title": "Error Rate Percentage",
+        "targets": [
+          {
+            "expr": "error_rate * 100",
+            "legendFormat": "Error Rate %"
+          }
+        ]
+      }
+    ]
+  }
+}
+

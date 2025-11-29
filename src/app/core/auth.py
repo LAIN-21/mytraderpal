@@ -1,4 +1,6 @@
+"""Authentication utilities."""
 import os
+
 
 def get_user_id_from_event(event: dict) -> str:
     """
@@ -27,3 +29,4 @@ def get_user_id_from_event(event: dict) -> str:
 
     # 4) No identity found
     raise PermissionError("Unauthorized")
+
