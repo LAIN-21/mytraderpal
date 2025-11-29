@@ -138,12 +138,27 @@ npm run dev
 Visit `http://localhost:5173` (Vite default port, points to deployed API or configure API URL)
 
 **Option 2: Full Stack with Docker**
+
+**Production Mode (no hot reload):**
 ```bash
 # Start both backend and frontend
 docker-compose up --build
 
 # Backend: http://localhost:9000
 # Frontend: http://localhost:3000
+```
+
+**Development Mode (with hot reload):**
+```bash
+# Start with hot reloading for both frontend and backend
+docker-compose up --build
+
+# Or use the script
+./scripts/dev_hot_reload.sh
+
+# Changes to code will automatically reload:
+# - Frontend: Browser auto-refreshes on file changes
+# - Backend: Code reloads on each API request
 ```
 
 **Option 3: Backend Testing**

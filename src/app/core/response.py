@@ -21,14 +21,26 @@ def get_origin(event: Dict[str, Any]) -> str:
 
 def cors_headers(origin: Optional[str] = None) -> Dict[str, str]:
     """Generate CORS headers."""
-    if origin is None:
+    if origin is None or origin == '*':
         origin = '*'
-    return {
+    else:
+        # Allow localhost for development
+        if 'localhost' in origin or '127.0.0.1' in origin:
+            pass  # Keep the origin as-is
+        # For production, you might want to validate against allowed origins
+    
+    headers = {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': origin,
         'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MTP-Dev-User'
     }
+    
+    # Add credentials header if origin is not wildcard
+    if origin != '*':
+        headers['Access-Control-Allow-Credentials'] = 'true'
+    
+    return headers
 
 
 def success_response(

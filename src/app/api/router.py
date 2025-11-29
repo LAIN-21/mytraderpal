@@ -36,6 +36,14 @@ def route_request(event: Dict[str, Any]) -> Dict[str, Any]:
         path = event.get('path') or event.get('rawPath', '/')
         origin = get_origin(event)
         
+        # Handle CORS preflight requests
+        if http_method == 'OPTIONS':
+            return {
+                'statusCode': 200,
+                'headers': cors_headers(origin),
+                'body': ''
+            }
+        
         # Authentication (except for health and metrics endpoints)
         user_id = None
         if path not in ['/v1/health', '/v1/metrics']:

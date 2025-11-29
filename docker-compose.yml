@@ -9,21 +9,37 @@ services:
       - AWS_REGION=us-east-1
     ports:
       - "9000:8080"
-    # For local testing with DynamoDB Local
-    # volumes:
-    #   - ./src/app:/var/task
+    volumes:
+      # Mount source code for hot reload
+      # Lambda RIE will reload code on each request
+      - ./src/app:/var/task
+      # Prevent __pycache__ from being overwritten
+      - /var/task/__pycache__
 
   frontend:
     build:
       context: ./src/frontend-react
       dockerfile: infra/docker/Dockerfile
-      args:
-        - VITE_API_URL=http://api:9000
-        - VITE_USER_POOL_ID=${VITE_USER_POOL_ID:-}
-        - VITE_USER_POOL_CLIENT_ID=${VITE_USER_POOL_CLIENT_ID:-}
-        - VITE_AWS_REGION=${VITE_AWS_REGION:-us-east-1}
     ports:
-      - "3000:80"
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot reload
+      - ./src/frontend-react/src:/app/src
+      - ./src/frontend-react/index.html:/app/index.html
+      - ./src/frontend-react/vite.config.ts:/app/vite.config.ts
+      - ./src/frontend-react/tsconfig.json:/app/tsconfig.json
+      - ./src/frontend-react/tailwind.config.js:/app/tailwind.config.js
+      - ./src/frontend-react/postcss.config.js:/app/postcss.config.js
+      # Mount .env file so Vite can read it at runtime
+      - ./src/frontend-react/.env:/app/.env
+      # Prevent node_modules from being overwritten
+      - /app/node_modules
+    env_file:
+      # Load environment variables from .env file
+      - ./src/frontend-react/.env
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
     depends_on:
       - api
 

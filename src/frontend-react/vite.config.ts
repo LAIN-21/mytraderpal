@@ -13,6 +13,13 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    watch: {
+      usePolling: true, // Enable polling for Docker
+    },
+    hmr: {
+      host: 'localhost',
+      port: 3000,
+    },
   },
   build: {
     outDir: 'dist',
