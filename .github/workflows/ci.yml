@@ -65,24 +65,24 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: src/frontend/package-lock.json
+          cache-dependency-path: src/frontend-react/package-lock.json
       
       - name: Install dependencies
-        working-directory: src/frontend
+        working-directory: src/frontend-react
         run: npm ci
       
       - name: Run linter
-        working-directory: src/frontend
+        working-directory: src/frontend-react
         run: npm run lint || true
       
       - name: Build frontend
-        working-directory: src/frontend
+        working-directory: src/frontend-react
         run: npm run build
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:3000' }}
-          NEXT_PUBLIC_USER_POOL_ID: ${{ secrets.NEXT_PUBLIC_USER_POOL_ID || 'test' }}
-          NEXT_PUBLIC_USER_POOL_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_USER_POOL_CLIENT_ID || 'test' }}
-          NEXT_PUBLIC_AWS_REGION: ${{ secrets.NEXT_PUBLIC_AWS_REGION || 'us-east-1' }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'http://localhost:9000' }}
+          VITE_USER_POOL_ID: ${{ secrets.VITE_USER_POOL_ID || 'test' }}
+          VITE_USER_POOL_CLIENT_ID: ${{ secrets.VITE_USER_POOL_CLIENT_ID || 'test' }}
+          VITE_AWS_REGION: ${{ secrets.VITE_AWS_REGION || 'us-east-1' }}
 
   build-docker:
     name: Build Docker Images
@@ -109,12 +109,17 @@ jobs:
       - name: Build frontend Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./infra/docker/Dockerfile.frontend
+          context: ./src/frontend-react
+          file: ./src/frontend-react/infra/docker/Dockerfile
           push: false
           tags: mytraderpal-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            VITE_API_URL=http://api:9000
+            VITE_USER_POOL_ID=${{ secrets.VITE_USER_POOL_ID || secrets.NEXT_PUBLIC_USER_POOL_ID || 'test' }}
+            VITE_USER_POOL_CLIENT_ID=${{ secrets.VITE_USER_POOL_CLIENT_ID || secrets.NEXT_PUBLIC_USER_POOL_CLIENT_ID || 'test' }}
+            VITE_AWS_REGION=${{ secrets.VITE_AWS_REGION || secrets.NEXT_PUBLIC_AWS_REGION || 'us-east-1' }}
 
   deploy:
     name: Deploy to Cloud

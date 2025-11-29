@@ -1,20 +1,13 @@
-'use client'
-
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { fetchAuthSession, signIn, signUp, confirmSignUp, signOut } from 'aws-amplify/auth'
-import { Amplify } from 'aws-amplify'
-import { config } from '@/lib/amplify-config'
-
-// Configure Amplify
-Amplify.configure(config)
+import { useNavigate } from 'react-router-dom'
+import { fetchAuthSession, signIn, signUp, confirmSignUp } from 'aws-amplify/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function LoginPage() {
-  const router = useRouter()
+  const navigate = useNavigate()
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -27,20 +20,17 @@ export default function LoginPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        console.log('Checking auth session...')
         const session = await fetchAuthSession()
-        console.log('Auth session:', session)
         if (session.tokens?.idToken) {
-          router.push('/')
+          navigate('/')
         }
       } catch (error) {
-        console.log('Auth check error:', error)
         // User is not authenticated, show login form
       }
     }
 
     checkAuth()
-  }, [router])
+  }, [navigate])
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,7 +39,7 @@ export default function LoginPage() {
 
     try {
       await signIn({ username: email, password })
-      router.push('/')
+      navigate('/')
     } catch (error: any) {
       setError(error.message || 'Sign in failed')
     } finally {
@@ -58,7 +48,6 @@ export default function LoginPage() {
   }
 
   const handleSignUp = async (e: React.FormEvent) => {
-    console.log('handleSignUp called!', { email, password })
     e.preventDefault()
     setIsLoading(true)
     setError('')
@@ -70,8 +59,7 @@ export default function LoginPage() {
     }
 
     try {
-      console.log('Attempting sign up with:', { email, password })
-      const result = await signUp({
+      await signUp({
         username: email,
         password,
         options: {
@@ -80,10 +68,8 @@ export default function LoginPage() {
           },
         },
       })
-      console.log('Sign up result:', result)
       setNeedsConfirmation(true)
     } catch (error: any) {
-      console.error('Sign up error:', error)
       setError(error.message || 'Sign up failed')
     } finally {
       setIsLoading(false)
@@ -238,3 +224,4 @@ export default function LoginPage() {
     </div>
   )
 }
+

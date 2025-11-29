@@ -56,10 +56,12 @@ mytraderpal/
 │   │   │   └── report_service.py
 │   │   └── repositories/   # Data access
 │   │       └── dynamodb.py
-│   └── frontend/           # Next.js frontend
-│       ├── app/
-│       ├── components/
-│       └── lib/
+│   └── frontend-react/      # React frontend (Vite)
+│       ├── src/
+│       │   ├── components/
+│       │   ├── lib/
+│       │   └── pages/
+│       └── package.json
 ├── tests/
 │   ├── unit/               # Unit tests
 │   └── integration/        # Integration tests
@@ -104,7 +106,7 @@ pip install -r requirements-dev.txt
 ### Frontend
 
 ```bash
-cd src/frontend
+cd src/frontend-react
 npm install
 ```
 
@@ -122,22 +124,42 @@ See `.env.example` for all required variables.
 
 ### Local Development
 
-**Backend:**
+**Option 1: Frontend Only (Recommended for UI Development)**
 ```bash
-# Using scripts
-./scripts/run_local.sh
+# Quick start - frontend only
+./scripts/dev_frontend.sh
 
-# Or manually with Docker
-docker-compose up
-```
-
-**Frontend:**
-```bash
-cd src/frontend
+# Or manually
+cd src/frontend-react
+npm install
 npm run dev
 ```
 
-Visit `http://localhost:3000`
+Visit `http://localhost:5173` (Vite default port, points to deployed API or configure API URL)
+
+**Option 2: Full Stack with Docker**
+```bash
+# Start both backend and frontend
+docker-compose up --build
+
+# Backend: http://localhost:9000
+# Frontend: http://localhost:3000
+```
+
+**Option 3: Backend Testing**
+```bash
+# Test Lambda handler locally
+python test_local.py
+
+# Or use Docker Lambda runtime
+./scripts/dev_backend.sh
+```
+
+**Note**: The backend is a Lambda function, so it's designed for AWS deployment. For local development:
+- Use `test_local.py` for quick testing
+- Use Docker with Lambda runtime for full local testing
+- Use `DEV_MODE=true` to bypass authentication
+- Frontend can connect to deployed API for full-stack testing
 
 ### Using Scripts
 
@@ -217,9 +239,9 @@ The project includes a GitHub Actions CI/CD pipeline (`.github/workflows/ci.yml`
    - `AWS_ACCESS_KEY_ID`
    - `AWS_SECRET_ACCESS_KEY`
    - `AWS_REGION` (optional, defaults to us-east-1)
-   - `NEXT_PUBLIC_API_URL` (for frontend build)
-   - `NEXT_PUBLIC_USER_POOL_ID`
-   - `NEXT_PUBLIC_USER_POOL_CLIENT_ID`
+   - `VITE_API_URL` (for frontend build)
+   - `VITE_USER_POOL_ID`
+   - `VITE_USER_POOL_CLIENT_ID`
 
 2. Push to `main` branch to trigger deployment
 

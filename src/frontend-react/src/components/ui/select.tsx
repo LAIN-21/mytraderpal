@@ -1,5 +1,3 @@
-'use client'
-
 import * as React from 'react'
 import { ChevronDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -92,7 +90,7 @@ const SelectContent = React.forwardRef<HTMLDivElement, SelectContentProps>(
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
       }
-    }, [open, setOpen])
+    }, [open, setOpen, ref])
 
     if (!open) return null
 
