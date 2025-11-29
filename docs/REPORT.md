@@ -61,11 +61,15 @@ services/api/
 
 **Test Structure**:
 ```
-tests/unit/
-├── test_auth_lambda.py      # 9 tests - Authentication
-├── test_dynamodb.py         # 16 tests - Database operations
-├── test_builders.py         # 2 tests - Data builders
-└── test_professor_ready.py  # 25 tests - Integration tests
+tests/
+├── unit/
+│   ├── test_auth_lambda.py      # 9 tests - Authentication
+│   ├── test_dynamodb.py         # 16 tests - Database operations
+│   ├── test_builders.py         # 2 tests - Data builders
+│   ├── test_imports.py          # 1 test - Import validation
+│   └── test_professor_ready.py  # 25 tests - Comprehensive tests
+└── integration/
+    └── test_api_endpoints.py    # 10 tests - API endpoint tests
 ```
 
 **Key Features**:
@@ -73,12 +77,17 @@ tests/unit/
 - Comprehensive coverage of all API endpoints
 - Error handling and edge case testing
 - Fast execution (~1.6 seconds)
+- Both unit and integration tests
+- Integration tests verify actual API behavior
 
 ### 2.2 Test Reports
 
 - Coverage reports generated in HTML and XML formats
-- CI pipeline automatically uploads coverage reports
-- Coverage threshold enforced at 70% minimum
+- CI pipeline automatically uploads coverage reports as artifacts
+- Coverage threshold enforced at 70% minimum (fails build if below)
+- `TEST_REPORT.md` provides comprehensive test documentation
+- HTML reports available in `htmlcov/` directory
+- XML reports used for CI/CD integration (Codecov)
 
 ## 3. Continuous Integration (CI)
 
@@ -95,9 +104,10 @@ tests/unit/
    - Generates coverage reports
 
 2. **Test Frontend**
-   - Runs Next.js linter
-   - Builds frontend application
+   - Runs ESLint
+   - Builds React application (Vite)
    - Validates build success
+   - Uses environment variables from secrets
 
 3. **Build Docker Images**
    - Builds backend Docker image
@@ -119,17 +129,18 @@ tests/unit/
 
 ### 4.1 Docker Containerization
 
-**Backend Dockerfile** (`services/api/Dockerfile`):
+**Backend Dockerfile** (`infra/docker/Dockerfile`):
 - Uses AWS Lambda Python 3.11 base image
 - Installs dependencies from requirements.txt
-- Copies application code
+- Copies application code from `src/app`
 - Configured for Lambda deployment
 
-**Frontend Dockerfile** (`frontend/Dockerfile`):
+**Frontend Dockerfile** (`src/frontend-react/infra/docker/Dockerfile`):
 - Multi-stage build (builder + runner)
-- Uses Node.js 18 Alpine
-- Standalone Next.js output
-- Optimized production image
+- Uses Node.js 18 Alpine for build
+- Uses Nginx Alpine for production
+- Vite-based React application
+- Optimized production image with static assets
 
 **Docker Compose** (`services/api/docker-compose.yml`):
 - Local development setup
@@ -212,14 +223,33 @@ tests/unit/
 - Scrapes metrics from `/v1/metrics` endpoint
 - 15-second scrape interval
 - Service labels for identification
+- Configured for both local and production environments
 
 **Usage**:
 ```bash
-# Run Prometheus
+# Run Prometheus locally
 docker run -p 9090:9090 \
   -v $(pwd)/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml \
   prom/prometheus
+
+# Access Prometheus UI
+open http://localhost:9090
 ```
+
+### 5.4 Grafana Dashboard
+
+**File**: `monitoring/grafana-dashboard.json`
+
+**Dashboard Panels**:
+- Request Rate (requests per second)
+- Error Rate (errors per second)
+- Average Latency (response time)
+- Error Rate Percentage
+
+**Usage**:
+1. Import dashboard JSON into Grafana
+2. Configure Prometheus as data source
+3. View real-time metrics visualization
 
 ## 6. Documentation Updates
 
@@ -251,9 +281,11 @@ docker run -p 9090:9090 \
 
 ### Testing (20% weight)
 ✅ 84% code coverage (exceeds 70% requirement)  
-✅ Comprehensive test suite (52 tests)  
+✅ Comprehensive test suite (52+ tests: 42 unit + 10 integration)  
 ✅ Automated test execution in CI  
-✅ Coverage reports generated  
+✅ Coverage reports generated (HTML, XML)  
+✅ Test report documentation (TEST_REPORT.md)  
+✅ Integration tests for API endpoints  
 
 ### CI/CD (20% weight)
 ✅ GitHub Actions pipeline configured  
@@ -269,10 +301,12 @@ docker run -p 9090:9090 \
 ✅ CDK deployment automation  
 
 ### Monitoring (15% weight)
-✅ Enhanced `/v1/health` endpoint  
-✅ Metrics collection and exposure  
-✅ Prometheus configuration  
+✅ Enhanced `/v1/health` endpoint with metrics summary  
+✅ Metrics collection and exposure (`/v1/metrics`)  
+✅ Prometheus configuration (`monitoring/prometheus.yml`)  
+✅ Grafana dashboard configuration (`monitoring/grafana-dashboard.json`)  
 ✅ Request/latency/error tracking  
+✅ Prometheus-formatted metrics output  
 
 ## 8. Future Improvements
 

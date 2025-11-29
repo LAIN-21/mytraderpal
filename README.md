@@ -266,6 +266,8 @@ Exposes Prometheus-formatted metrics:
 
 ### Prometheus Setup
 
+**Configuration**: `monitoring/prometheus.yml`
+
 ```bash
 # Run Prometheus
 docker run -p 9090:9090 \
@@ -275,6 +277,40 @@ docker run -p 9090:9090 \
 # Access Prometheus UI
 open http://localhost:9090
 ```
+
+**Prometheus Configuration**:
+- Scrapes metrics from `/v1/metrics` endpoint
+- 15-second scrape interval
+- Configured for local and production environments
+
+### Grafana Setup
+
+**Dashboard**: `monitoring/grafana-dashboard.json`
+
+1. **Start Grafana**:
+```bash
+docker run -d -p 3001:3000 \
+  -e GF_SECURITY_ADMIN_PASSWORD=admin \
+  grafana/grafana
+```
+
+2. **Access Grafana**: `http://localhost:3001` (admin/admin)
+
+3. **Configure Prometheus Data Source**:
+   - Go to Configuration → Data Sources
+   - Add Prometheus
+   - URL: `http://host.docker.internal:9090` (or your Prometheus URL)
+
+4. **Import Dashboard**:
+   - Go to Dashboards → Import
+   - Upload `monitoring/grafana-dashboard.json`
+   - Select Prometheus as data source
+
+**Dashboard Panels**:
+- Request Rate (requests/second)
+- Error Rate (errors/second)
+- Average Latency (response time)
+- Error Rate Percentage
 
 ## Deploy
 
