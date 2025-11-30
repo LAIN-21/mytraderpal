@@ -53,11 +53,45 @@ The `make install` command automatically:
 
 **Note:** All `.env` files are created automatically with default values for local development.
 
+## Testing for Fresh Clones
+
+To verify everything works for someone cloning the repo:
+
+```bash
+# Test in a completely fresh directory
+cd /tmp  # or any directory outside your project
+git clone <your-repo-url> mytraderpal-test
+cd mytraderpal-test
+make install
+make start
+```
+
+**What should work:**
+- ✅ `make install` creates all `.env` files automatically
+- ✅ `make start` starts frontend and backend
+- ✅ Frontend at http://localhost:3000
+- ✅ Backend at http://localhost:9000
+- ✅ All local development features work (DEV_MODE)
+
+**What won't work (and that's expected):**
+- ❌ **Production deployment** - Requires GitHub Secrets (see below)
+
 ## Production Deployment
+
+### Important: GitHub Secrets Are Repository-Specific
+
+**⚠️ When someone forks or clones your repository:**
+- They do **NOT** have access to your GitHub Secrets
+- Secrets are stored per-repository in GitHub Settings
+- Forks/clones need to set up their own secrets for deployment
+
+**What this means:**
+- ✅ **Local development** works immediately (no secrets needed)
+- ❌ **CI/CD deployment** won't work until they configure their own secrets
 
 ### Required GitHub Secrets
 
-For automatic deployment via CI/CD, you need to configure these GitHub Secrets:
+For automatic deployment via CI/CD, you need to configure these GitHub Secrets in **your own repository**:
 
 1. **`AWS_ACCESS_KEY_ID`** (required)
 2. **`AWS_SECRET_ACCESS_KEY`** (required)
