@@ -44,6 +44,39 @@ def route_request(event: Dict[str, Any]) -> Dict[str, Any]:
                 'body': ''
             }
         
+        # Define valid paths and their allowed methods
+        valid_paths = {
+            '/v1/health': ['GET'],
+            '/v1/metrics': ['GET'],
+            '/v1/notes': ['GET', 'POST'],
+            '/v1/strategies': ['GET', 'POST'],
+            '/v1/reports/notes-summary': ['GET']
+        }
+        
+        # Check if path is valid (exact match or starts with valid prefix)
+        is_valid_path = (
+            path in valid_paths or
+            path.startswith('/v1/notes/') or
+            path.startswith('/v1/strategies/')
+        )
+        
+        # Return 404 for invalid paths before authentication
+        if not is_valid_path:
+            return error_response(404, 'Not found', origin)
+        
+        # Check HTTP method for valid paths
+        if path in valid_paths:
+            allowed_methods = valid_paths[path]
+        elif path.startswith('/v1/notes/'):
+            allowed_methods = ['GET', 'PUT', 'PATCH', 'DELETE']
+        elif path.startswith('/v1/strategies/'):
+            allowed_methods = ['GET', 'PUT', 'PATCH', 'DELETE']
+        else:
+            allowed_methods = []
+        
+        if http_method not in allowed_methods:
+            return error_response(405, 'Method not allowed', origin)
+        
         # Authentication (except for health and metrics endpoints)
         user_id = None
         if path not in ['/v1/health', '/v1/metrics']:
