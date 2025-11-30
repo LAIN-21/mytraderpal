@@ -69,19 +69,116 @@ setup-env:
 		echo "✅ src/frontend-react/.env already exists"; \
 	fi
 
+# Setup Python virtual environment
+setup-python:
+	@echo "🐍 Setting up Python virtual environment..."
+	@if [ ! -d .venv ]; then \
+		echo "Creating virtual environment..."; \
+		python3 -m venv .venv; \
+		echo "✅ Virtual environment created"; \
+	else \
+		echo "✅ Virtual environment already exists"; \
+	fi
+	@echo "Installing Python dependencies..."
+	@.venv/bin/pip install --quiet --upgrade pip > /dev/null 2>&1 || true
+	@.venv/bin/pip install --quiet -r requirements.txt > /dev/null 2>&1 || .venv/bin/pip install -r requirements.txt
+	@.venv/bin/pip install --quiet -r requirements-dev.txt > /dev/null 2>&1 || .venv/bin/pip install -r requirements-dev.txt
+	@echo "✅ Python dependencies installed"
+
+# Setup Frontend dependencies
+setup-frontend:
+	@echo "📦 Setting up Frontend dependencies..."
+	@if [ ! -f src/frontend-react/package-lock.json ]; then \
+		echo "⚠️  Warning: package-lock.json not found. This may cause issues."; \
+	fi
+	@if [ ! -d src/frontend-react/node_modules ]; then \
+		echo "Installing npm dependencies..."; \
+		cd src/frontend-react && \
+		if [ -f package-lock.json ]; then \
+			npm ci || npm install; \
+		else \
+			npm install; \
+		fi && \
+		cd ../..; \
+		echo "✅ Frontend dependencies installed"; \
+	else \
+		echo "✅ Frontend dependencies already installed"; \
+	fi
+
+# Check optional tools (for infrastructure/deployment)
+check-optional-tools:
+	@echo "🔧 Checking optional tools..."
+	@if ! command -v terraform >/dev/null 2>&1; then \
+		echo "⚠️  Terraform not found (optional, needed for AWS deployment)"; \
+		echo "   Install: brew install terraform  # macOS"; \
+		echo "   Or: https://www.terraform.io/downloads"; \
+	else \
+		TERRAFORM_VERSION=$$(terraform version -json 2>/dev/null | grep -o '"terraform_version":"[^"]*"' | cut -d'"' -f4 || terraform version | head -1); \
+		echo "✅ Terraform found: $$TERRAFORM_VERSION"; \
+	fi
+	@if ! command -v aws >/dev/null 2>&1; then \
+		echo "⚠️  AWS CLI not found (optional, needed for AWS deployment)"; \
+		echo "   Install: brew install awscli  # macOS"; \
+		echo "   Or: https://aws.amazon.com/cli/"; \
+		echo "   Then configure: aws configure"; \
+	else \
+		AWS_VERSION=$$(aws --version 2>/dev/null | cut -d' ' -f1); \
+		echo "✅ AWS CLI found: $$AWS_VERSION"; \
+		if ! aws sts get-caller-identity >/dev/null 2>&1; then \
+			echo "⚠️  AWS CLI not configured. Run: aws configure"; \
+		else \
+			echo "✅ AWS CLI configured"; \
+		fi; \
+	fi
+	@echo ""
+
 # Install dependencies and setup
-install: check-prerequisites setup-env
+install: check-prerequisites setup-env setup-python setup-frontend check-optional-tools
 	@echo ""
-	@echo "🚀 Installing MyTraderPal..."
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "🚀 MyTraderPal Installation Complete!"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
-	@echo "✅ Prerequisites verified"
-	@echo "✅ Environment files configured"
+	@echo "✅ Prerequisites verified:"
+	@echo "   • Docker Desktop (running)"
+	@echo "   • Make"
 	@echo ""
-	@echo "📦 Dependencies will be installed when containers start"
+	@echo "✅ Environment configured:"
+	@echo "   • src/app/.env (backend environment variables)"
+	@echo "   • src/frontend-react/.env (frontend environment variables)"
 	@echo ""
-	@echo "✅ Installation complete!"
+	@echo "✅ Backend dependencies installed:"
+	@echo "   • Python virtual environment (.venv)"
+	@echo "   • Production dependencies (requirements.txt)"
+	@echo "   • Development dependencies (requirements-dev.txt)"
 	@echo ""
-	@echo "Next step: Run 'make start' to start the application"
+	@echo "✅ Frontend dependencies installed:"
+	@echo "   • Node.js packages (node_modules)"
+	@echo "   • All npm dependencies from package.json"
+	@echo ""
+	@echo "📦 Docker dependencies:"
+	@echo "   • Will be installed automatically when containers start"
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo ""
+	@echo "💡 Quick Start Commands:"
+	@echo ""
+	@echo "   make start      - Start the application (frontend + backend)"
+	@echo "   make test      - Run all tests with coverage"
+	@echo "   make test-fast - Run tests without coverage (faster)"
+	@echo "   make verify    - Verify services are running"
+	@echo "   make logs      - View container logs"
+	@echo ""
+	@echo "💡 Manual Python Usage:"
+	@echo ""
+	@echo "   source .venv/bin/activate  # Activate virtual environment"
+	@echo "   python -m pytest tests/    # Run tests manually"
+	@echo "   deactivate                  # Deactivate when done"
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo ""
+	@echo "🎯 Next Step: Run 'make start' to start the application"
+	@echo ""
 
 # Start containers
 start: check-prerequisites
@@ -163,6 +260,42 @@ logs:
 # Quick status check
 status:
 	@$(DOCKER_COMPOSE) ps
+
+# ============================================================================
+# Testing Commands (using virtual environment)
+# ============================================================================
+
+# Run tests with coverage
+test:
+	@echo "🧪 Running tests..."
+	@if [ ! -d .venv ]; then \
+		echo "❌ Virtual environment not found. Run 'make install' first."; \
+		exit 1; \
+	fi
+	@.venv/bin/python -m pytest tests/ \
+		--cov=src/app \
+		--cov-report=term-missing \
+		--cov-report=html \
+		--cov-fail-under=70 \
+		-v
+
+# Run tests without coverage
+test-fast:
+	@echo "🧪 Running tests (fast mode)..."
+	@if [ ! -d .venv ]; then \
+		echo "❌ Virtual environment not found. Run 'make install' first."; \
+		exit 1; \
+	fi
+	@.venv/bin/python -m pytest tests/ -v
+
+# View coverage report
+coverage:
+	@echo "📊 Opening coverage report..."
+	@if [ ! -f htmlcov/index.html ]; then \
+		echo "❌ Coverage report not found. Run 'make test' first."; \
+		exit 1; \
+	fi
+	@open htmlcov/index.html 2>/dev/null || xdg-open htmlcov/index.html 2>/dev/null || echo "Open htmlcov/index.html in your browser"
 
 # ============================================================================
 # Terraform Infrastructure Commands
