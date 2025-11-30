@@ -20,3 +20,4 @@ def get_metrics_endpoint(event: Dict[str, Any]) -> Dict[str, Any]:
         'body': prometheus_text
     }
 
+

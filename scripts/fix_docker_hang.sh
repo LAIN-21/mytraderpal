@@ -18,3 +18,4 @@ echo ""
 echo "Now try running docker-compose again:"
 echo "  docker-compose up --build"
 
+

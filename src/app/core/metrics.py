@@ -64,3 +64,4 @@ def get_metrics() -> MetricsCollector:
     """Get the global metrics collector instance."""
     return _metrics
 
+

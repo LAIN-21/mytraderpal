@@ -209,3 +209,4 @@ The MyTraderPal application has a comprehensive test suite with:
 
 All testing requirements for Individual Assignment 2 have been met and exceeded.
 
+

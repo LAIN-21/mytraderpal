@@ -244,3 +244,4 @@ Both images are ready for:
 - Any container platform
 - Static hosting (frontend)
 
+

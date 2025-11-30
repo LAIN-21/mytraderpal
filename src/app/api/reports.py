@@ -18,3 +18,4 @@ def get_notes_summary(event: Dict[str, Any], user_id: str) -> Dict[str, Any]:
     except Exception as e:
         return error_response(500, f'Failed to generate report: {str(e)}', get_origin(event))
 
+

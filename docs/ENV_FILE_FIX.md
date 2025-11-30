@@ -145,3 +145,4 @@ docker-compose -f docker-compose.dev.yml up --build
 
 The authentication should now work correctly! 🎉
 
+

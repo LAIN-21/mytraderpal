@@ -135,3 +135,4 @@ VITE_AWS_REGION=us-east-1
 - Only commit `.env.example` files
 - Use GitHub Secrets for CI/CD pipelines
 
+

@@ -53,3 +53,4 @@ class Strategy:
             updated_at=data.get('updatedAt')
         )
 
+

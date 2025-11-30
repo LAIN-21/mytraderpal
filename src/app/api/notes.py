@@ -69,3 +69,4 @@ def delete_note(event: Dict[str, Any], user_id: str, note_id: str) -> Dict[str, 
     except Exception as e:
         return error_response(500, f'Failed to delete note: {str(e)}', get_origin(event))
 
+

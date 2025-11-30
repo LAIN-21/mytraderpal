@@ -73,3 +73,4 @@ class Note:
             updated_at=data.get('updatedAt')
         )
 
+

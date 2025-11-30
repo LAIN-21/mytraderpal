@@ -184,3 +184,4 @@ class TestCORS:
         assert 'Access-Control-Allow-Origin' in response['headers']
         assert response['headers']['Access-Control-Allow-Origin'] == 'https://example.com'
 
+

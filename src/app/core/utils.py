@@ -20,3 +20,4 @@ def generate_id(prefix: str) -> str:
         import uuid
         return f"{prefix}-{uuid.uuid4()}"
 
+

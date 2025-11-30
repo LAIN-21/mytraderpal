@@ -70,3 +70,4 @@ class ReportService:
 # Service instance
 report_service = ReportService()
 
+

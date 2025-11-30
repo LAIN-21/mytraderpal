@@ -1,0 +1,53 @@
+# AWS Configuration
+aws_region  = "us-east-1"
+environment = "dev"
+
+# DynamoDB
+table_name = "mtp_app"
+
+# Cognito
+user_pool_name        = "mytraderpal-users"
+cognito_domain_prefix = "mytraderpal-dev"  # Must be globally unique
+
+# Cognito OAuth URLs
+cognito_callback_urls = [
+  "http://localhost:3000/login",
+  "https://your-app.amplifyapp.com/login"
+]
+
+cognito_logout_urls = [
+  "http://localhost:3000/",
+  "https://your-app.amplifyapp.com/login"
+]
+
+# Lambda
+lambda_function_name = "mytraderpal-api"
+lambda_runtime       = "python3.11"
+lambda_handler       = "main.handler"
+lambda_timeout       = 30
+
+# Paths (relative to terraform directory)
+lambda_source_code_path = "../../src/app"
+lambda_requirements_path = "../../requirements.txt"
+
+# API Gateway
+api_name = "mytraderpal-api"
+
+# Development Mode
+dev_mode          = "true"  # Set to "false" for production
+enable_cognito_auth = false  # Set to true when dev_mode is false
+
+# CORS Configuration
+cors_allowed_origins = [
+  "http://localhost:3000",
+  "https://*.amplifyapp.com"
+]
+
+cors_allowed_headers = [
+  "Content-Type",
+  "Authorization",
+  "X-MTP-Dev-User"
+]
+
+cors_allowed_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+

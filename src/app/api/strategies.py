@@ -68,3 +68,4 @@ def delete_strategy(event: Dict[str, Any], user_id: str, strategy_id: str) -> Di
     except Exception as e:
         return error_response(500, f'Failed to delete strategy: {str(e)}', get_origin(event))
 
+

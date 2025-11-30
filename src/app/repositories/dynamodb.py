@@ -142,3 +142,4 @@ class DynamoDBRepository:
 # Reusable module-level repository instance (warm Lambda reuse)
 db = DynamoDBRepository()
 
+

@@ -90,6 +90,15 @@ htmlcov/
 # AWS
 .aws/
 
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+!**/terraform.tfvars.example
+.terraform.lock.hcl
+
 # Package managers
 package-lock.json
 yarn.lock
