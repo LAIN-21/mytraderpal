@@ -102,6 +102,7 @@ htmlcov/
 
 # Package managers
 package-lock.json
+!src/frontend-react/package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
