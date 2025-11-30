@@ -14,6 +14,8 @@ make start
 Application runs at:
 - Frontend: http://localhost:3000
 - Backend: http://localhost:9000
+- Prometheus: http://localhost:9090 (metrics collection)
+- Grafana: http://localhost:3001 (monitoring dashboard, login: admin/admin)
 
 ## Prerequisites
 
@@ -169,6 +171,21 @@ The CI/CD pipeline will:
 - Backend will require real Cognito authentication
 - Frontend must have `VITE_USER_POOL_ID` and `VITE_USER_POOL_CLIENT_ID` configured
 - Without Cognito, you'll get 401 Unauthorized errors
+
+## Local Monitoring
+
+When you run `make start`, monitoring services are automatically started:
+
+- **Prometheus** (http://localhost:9090): Collects metrics from the API
+  - Scrapes `/v1/metrics` endpoint every 15 seconds
+  - Stores metrics in persistent volume
+
+- **Grafana** (http://localhost:3001): Visualizes metrics
+  - Login: `admin` / `admin`
+  - Pre-configured with "MyTraderPal Metrics" dashboard
+  - Shows: Request Rate, Error Rate, Average Latency, Error Rate Percentage
+
+**Metrics are automatically collected** from your API and displayed in real-time.
 
 ## What Gets Deployed to AWS
 

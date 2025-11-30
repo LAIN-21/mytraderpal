@@ -9,7 +9,7 @@ scrape_configs:
       - targets: ['api:9000']
         labels:
           service: 'mytraderpal-backend'
-          environment: 'production'
+          environment: 'local'
 
   - job_name: 'prometheus'
     static_configs:

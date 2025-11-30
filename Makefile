@@ -192,9 +192,13 @@ start: check-prerequisites
 		echo "✅ Services started!"; \
 		echo ""; \
 		echo "📍 Access your application:"; \
-		echo "   Frontend: http://localhost:3000"; \
-		echo "   Backend:  http://localhost:9000"; \
-		echo "   Health:   http://localhost:9000/v1/health"; \
+		echo "   Frontend:  http://localhost:3000"; \
+		echo "   Backend:   http://localhost:9000"; \
+		echo "   Health:    http://localhost:9000/v1/health"; \
+		echo ""; \
+		echo "🔍 Monitoring:"; \
+		echo "   Prometheus: http://localhost:9090"; \
+		echo "   Grafana:    http://localhost:3001 (admin/admin)"; \
 		echo ""; \
 		echo "💡 Useful commands:"; \
 		echo "   make logs    - View logs"; \
@@ -243,10 +247,22 @@ verify: check-prerequisites
 		else \
 			echo "⚠️  Frontend check failed (may still be starting)"; \
 		fi; \
+		if curl -s http://localhost:9090/-/healthy >/dev/null 2>&1; then \
+			echo "✅ Prometheus is accessible"; \
+		else \
+			echo "⚠️  Prometheus check failed (may still be starting)"; \
+		fi; \
+		if curl -s http://localhost:3001/api/health >/dev/null 2>&1; then \
+			echo "✅ Grafana is accessible"; \
+		else \
+			echo "⚠️  Grafana check failed (may still be starting)"; \
+		fi; \
 		echo ""; \
 		echo "📍 URLs:"; \
-		echo "   Frontend: http://localhost:3000"; \
-		echo "   Backend:  http://localhost:9000"; \
+		echo "   Frontend:  http://localhost:3000"; \
+		echo "   Backend:   http://localhost:9000"; \
+		echo "   Prometheus: http://localhost:9090"; \
+		echo "   Grafana:    http://localhost:3001"; \
 	else \
 		echo "❌ Containers are not running"; \
 		echo "   Run 'make start' to start them"; \
