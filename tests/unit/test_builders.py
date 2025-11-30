@@ -1,8 +1,11 @@
-from services.api.common.dynamodb import DynamoDBClient
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
+from app.repositories.dynamodb import DynamoDBRepository
 
 def test_create_note_item_shapes_keys(monkeypatch):
     monkeypatch.setenv('TABLE_NAME', 'dummy')
-    client = DynamoDBClient()
+    client = DynamoDBRepository()
     item = client.create_note_item('u1', 'note-1', {'text': 'hi', 'date': '2025-01-01T00:00:00Z'})
     assert item['PK'] == 'USER#u1'
     assert item['SK'] == 'NOTE#note-1'
@@ -13,7 +16,7 @@ def test_create_note_item_shapes_keys(monkeypatch):
 
 def test_create_strategy_item_shapes_keys(monkeypatch):
     monkeypatch.setenv('TABLE_NAME', 'dummy')
-    client = DynamoDBClient()
+    client = DynamoDBRepository()
     item = client.create_strategy_item('u1', 'strat-1', {'name': 'S'})
     assert item['PK'] == 'USER#u1'
     assert item['SK'] == 'STRAT#strat-1'

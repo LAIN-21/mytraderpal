@@ -5,28 +5,28 @@ import pytest
 from moto import mock_aws
 import boto3
 
-# Add the services/api directory to the Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../services/api'))
+# Add src to the Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
 
-from common.dynamodb import DynamoDBClient, ALLOWED_NOTE_FIELDS, ALLOWED_STRATEGY_FIELDS
+from app.repositories.dynamodb import DynamoDBRepository, ALLOWED_NOTE_FIELDS, ALLOWED_STRATEGY_FIELDS
 
 
-class TestDynamoDBClient:
-    @patch.dict(os.environ, {'TABLE_NAME': 'test-table'})
+class TestDynamoDBRepository:
+    @patch.dict(os.environ, {'TABLE_NAME': 'test-table', 'AWS_REGION': 'us-east-1'})
     def test_init(self):
-        """Test DynamoDBClient initialization"""
-        client = DynamoDBClient()
+        """Test DynamoDBRepository initialization"""
+        client = DynamoDBRepository()
         assert client.table_name == 'test-table'
         assert client.table is not None
     
-    @patch.dict(os.environ, {})
+    @patch.dict(os.environ, {'AWS_REGION': 'us-east-1'})
     def test_init_default_table_name(self):
-        """Test DynamoDBClient initialization with default table name"""
-        client = DynamoDBClient()
+        """Test DynamoDBRepository initialization with default table name"""
+        client = DynamoDBRepository()
         assert client.table_name == 'mtp_app'
     
     @mock_aws
-    @patch.dict(os.environ, {'TABLE_NAME': 'test-table'})
+    @patch.dict(os.environ, {'TABLE_NAME': 'test-table', 'AWS_REGION': 'us-east-1'})
     def test_put_item_with_condition(self):
         """Test put_item with condition expression"""
         # Create mock table
@@ -44,7 +44,7 @@ class TestDynamoDBClient:
             ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
         )
         
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         item = {
             'PK': 'USER#test',
             'SK': 'NOTE#test',
@@ -55,7 +55,7 @@ class TestDynamoDBClient:
         assert result is not None
     
     @mock_aws
-    @patch.dict(os.environ, {'TABLE_NAME': 'test-table'})
+    @patch.dict(os.environ, {'TABLE_NAME': 'test-table', 'AWS_REGION': 'us-east-1'})
     def test_get_item(self):
         """Test get_item"""
         # Create mock table
@@ -73,14 +73,14 @@ class TestDynamoDBClient:
             ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
         )
         
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         
         # Test getting non-existent item
         result = client.get_item('USER#test', 'NOTE#test')
         assert result is None
     
     @mock_aws
-    @patch.dict(os.environ, {'TABLE_NAME': 'test-table'})
+    @patch.dict(os.environ, {'TABLE_NAME': 'test-table', 'AWS_REGION': 'us-east-1'})
     def test_delete_item(self):
         """Test delete_item"""
         # Create mock table
@@ -98,12 +98,12 @@ class TestDynamoDBClient:
             ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
         )
         
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         result = client.delete_item('USER#test', 'NOTE#test')
         assert result is not None
     
     @mock_aws
-    @patch.dict(os.environ, {'TABLE_NAME': 'test-table'})
+    @patch.dict(os.environ, {'TABLE_NAME': 'test-table', 'AWS_REGION': 'us-east-1'})
     def test_update_item(self):
         """Test update_item"""
         # Create mock table
@@ -121,7 +121,7 @@ class TestDynamoDBClient:
             ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
         )
         
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         
         # Test update with expression attribute names
         result = client.update_item(
@@ -134,7 +134,7 @@ class TestDynamoDBClient:
         assert result is not None
     
     @mock_aws
-    @patch.dict(os.environ, {'TABLE_NAME': 'test-table'})
+    @patch.dict(os.environ, {'TABLE_NAME': 'test-table', 'AWS_REGION': 'us-east-1'})
     def test_query_pk(self):
         """Test query_pk method"""
         # Create mock table
@@ -152,13 +152,13 @@ class TestDynamoDBClient:
             ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
         )
         
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         result = client.query_pk('USER#test')
         assert result is not None
         assert 'Items' in result
     
     @mock_aws
-    @patch.dict(os.environ, {'TABLE_NAME': 'test-table'})
+    @patch.dict(os.environ, {'TABLE_NAME': 'test-table', 'AWS_REGION': 'us-east-1'})
     def test_query_pk_with_sk_begins_with(self):
         """Test query_pk with sk_begins_with parameter"""
         # Create mock table
@@ -176,13 +176,13 @@ class TestDynamoDBClient:
             ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
         )
         
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         result = client.query_pk('USER#test', sk_begins_with='NOTE#')
         assert result is not None
         assert 'Items' in result
     
     @mock_aws
-    @patch.dict(os.environ, {'TABLE_NAME': 'test-table'})
+    @patch.dict(os.environ, {'TABLE_NAME': 'test-table', 'AWS_REGION': 'us-east-1'})
     def test_query_gsi1(self):
         """Test query_gsi1 method"""
         # Create mock table with GSI
@@ -211,14 +211,14 @@ class TestDynamoDBClient:
             ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
         )
         
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         result = client.query_gsi1('NOTE#test')
         assert result is not None
         assert 'Items' in result
     
     def test_create_note_item_basic(self):
         """Test create_note_item with basic data"""
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         item = client.create_note_item('user-123', 'note-456', {
             'text': 'Test note',
             'date': '2025-01-01T00:00:00Z'
@@ -238,7 +238,7 @@ class TestDynamoDBClient:
     
     def test_create_note_item_filters_allowed_fields(self):
         """Test create_note_item filters only allowed fields"""
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         data = {
             'text': 'Test note',
             'date': '2025-01-01T00:00:00Z',
@@ -265,7 +265,7 @@ class TestDynamoDBClient:
     
     def test_create_note_item_filters_none_empty_values(self):
         """Test create_note_item filters None and empty values"""
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         data = {
             'text': 'Test note',
             'date': '2025-01-01T00:00:00Z',
@@ -286,7 +286,7 @@ class TestDynamoDBClient:
     
     def test_create_note_item_defaults_date(self):
         """Test create_note_item defaults date when not provided"""
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         item = client.create_note_item('user-123', 'note-456', {'text': 'Test note'})
         
         # Date should be in GSI1SK but not in the main item since it wasn't provided
@@ -295,7 +295,7 @@ class TestDynamoDBClient:
     
     def test_create_strategy_item_basic(self):
         """Test create_strategy_item with basic data"""
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         item = client.create_strategy_item('user-123', 'strat-456', {
             'name': 'Test Strategy',
             'market': 'ES',
@@ -318,7 +318,7 @@ class TestDynamoDBClient:
     
     def test_create_strategy_item_filters_allowed_fields(self):
         """Test create_strategy_item filters only allowed fields"""
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         data = {
             'name': 'Test Strategy',
             'market': 'ES',
@@ -339,7 +339,7 @@ class TestDynamoDBClient:
     
     def test_create_strategy_item_filters_none_empty_values(self):
         """Test create_strategy_item filters None and empty values"""
-        client = DynamoDBClient()
+        client = DynamoDBRepository()
         data = {
             'name': 'Test Strategy',
             'market': None,

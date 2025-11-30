@@ -3,10 +3,10 @@ import os
 from unittest.mock import patch
 import pytest
 
-# Add the services/api directory to the Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../services/api'))
+# Add src to the Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
 
-from common.auth_lambda import get_user_id_from_event
+from app.core.auth import get_user_id_from_event
 
 
 class TestAuthLambda:

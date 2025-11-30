@@ -14,10 +14,10 @@ import json
 from unittest.mock import patch, MagicMock
 import pytest
 
-# Add the services/api directory to the Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../services/api'))
+# Add src to the Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
 
-from main import handler
+from app.main import handler
 
 
 class TestProfessorReady:
@@ -93,7 +93,7 @@ class TestProfessorReady:
     
     # ==================== NOTES CRUD TESTS ====================
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_notes_create_success(self, mock_db):
         """Test successful note creation"""
         mock_db.create_note_item.return_value = {
@@ -121,7 +121,7 @@ class TestProfessorReady:
         mock_db.create_note_item.assert_called_once()
         mock_db.put_item.assert_called_once()
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_notes_list_success(self, mock_db):
         """Test successful notes listing"""
         mock_db.query_gsi1.return_value = {
@@ -163,7 +163,7 @@ class TestProfessorReady:
             last_evaluated_key=None
         )
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_notes_list_with_pagination(self, mock_db):
         """Test notes listing with pagination"""
         mock_db.query_gsi1.return_value = {
@@ -187,7 +187,7 @@ class TestProfessorReady:
             last_evaluated_key={'PK': 'USER#test-user'}
         )
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_notes_update_success(self, mock_db):
         """Test successful note update"""
         mock_db.get_item.return_value = {'noteId': 'note-123', 'text': 'Original text'}
@@ -215,7 +215,7 @@ class TestProfessorReady:
         mock_db.get_item.assert_called_once_with('USER#test-user', 'NOTE#note-123')
         mock_db.update_item.assert_called_once()
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_notes_update_not_found(self, mock_db):
         """Test note update when note doesn't exist"""
         mock_db.get_item.return_value = None
@@ -232,7 +232,7 @@ class TestProfessorReady:
         mock_db.get_item.assert_called_once()
         mock_db.update_item.assert_not_called()
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_notes_delete_success(self, mock_db):
         """Test successful note deletion"""
         mock_db.get_item.return_value = {'noteId': 'note-123'}
@@ -247,7 +247,7 @@ class TestProfessorReady:
         mock_db.get_item.assert_called_once_with('USER#test-user', 'NOTE#note-123')
         mock_db.delete_item.assert_called_once_with('USER#test-user', 'NOTE#note-123')
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_notes_delete_not_found(self, mock_db):
         """Test note deletion when note doesn't exist"""
         mock_db.get_item.return_value = None
@@ -263,7 +263,7 @@ class TestProfessorReady:
     
     # ==================== STRATEGIES CRUD TESTS ====================
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_strategies_create_success(self, mock_db):
         """Test successful strategy creation"""
         mock_db.create_strategy_item.return_value = {
@@ -291,7 +291,7 @@ class TestProfessorReady:
         mock_db.create_strategy_item.assert_called_once()
         mock_db.put_item.assert_called_once()
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_strategies_list_success(self, mock_db):
         """Test successful strategies listing"""
         mock_db.query_gsi1.return_value = {
@@ -334,7 +334,7 @@ class TestProfessorReady:
             last_evaluated_key=None
         )
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_strategies_get_single_success(self, mock_db):
         """Test successful single strategy retrieval"""
         mock_db.get_item.return_value = {
@@ -359,7 +359,7 @@ class TestProfessorReady:
         
         mock_db.get_item.assert_called_once_with('USER#test-user', 'STRAT#strat-123')
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_strategies_get_not_found(self, mock_db):
         """Test strategy retrieval when strategy doesn't exist"""
         mock_db.get_item.return_value = None
@@ -372,7 +372,7 @@ class TestProfessorReady:
         
         mock_db.get_item.assert_called_once()
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_strategies_update_success(self, mock_db):
         """Test successful strategy update"""
         mock_db.get_item.return_value = {'strategyId': 'strat-123', 'name': 'Original'}
@@ -397,7 +397,7 @@ class TestProfessorReady:
         mock_db.get_item.assert_called_once()
         mock_db.update_item.assert_called_once()
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_strategies_delete_success(self, mock_db):
         """Test successful strategy deletion"""
         mock_db.get_item.return_value = {'strategyId': 'strat-123'}
@@ -414,7 +414,7 @@ class TestProfessorReady:
     
     # ==================== REPORTING TESTS ====================
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_reports_notes_summary_success(self, mock_db):
         """Test successful notes summary reporting"""
         mock_db.query_gsi1.return_value = {
@@ -442,7 +442,7 @@ class TestProfessorReady:
             limit=200
         )
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_reports_with_date_filter(self, mock_db):
         """Test notes summary with date filtering"""
         mock_db.query_gsi1.return_value = {
@@ -473,7 +473,7 @@ class TestProfessorReady:
         body = json.loads(result['body'])
         assert body['message'] == 'Not found'
     
-    @patch('main.get_user_id_from_event')
+    @patch('app.main.get_user_id_from_event')
     def test_internal_error_handling(self, mock_get_user_id):
         """Test internal error handling"""
         mock_get_user_id.side_effect = Exception("Simulated internal error")
@@ -512,7 +512,7 @@ class TestProfessorReady:
     def test_decimal_default_helper(self):
         """Test decimal_default helper function"""
         from decimal import Decimal
-        from main import decimal_default
+        from app.main import decimal_default
         
         # Test decimal conversion
         assert decimal_default(Decimal('10.5')) == 10.5
@@ -521,7 +521,7 @@ class TestProfessorReady:
         with pytest.raises(TypeError):
             decimal_default("not a decimal")
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_strategies_update_with_dsl_object(self, mock_db):
         """Test strategy update with DSL as object (should be JSON serialized)"""
         mock_db.get_item.return_value = {'strategyId': 'strat-123', 'name': 'Original'}
@@ -546,7 +546,7 @@ class TestProfessorReady:
         # Verify the update call was made
         mock_db.update_item.assert_called_once()
     
-    @patch('main.db')
+    @patch('app.main.db')
     def test_strategies_update_with_dsl_string(self, mock_db):
         """Test strategy update with DSL as string (should pass through)"""
         mock_db.get_item.return_value = {'strategyId': 'strat-123', 'name': 'Original'}
