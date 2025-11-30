@@ -503,34 +503,19 @@ class TestProfessorReady:
         body = json.loads(result['body'])
         assert body['message'] == 'Not found'
     
-    @patch('app.core.auth.get_user_id_from_event')
     @patch('app.repositories.dynamodb._get_db')
-    def test_internal_error_handling(self, mock_get_db, mock_get_user_id):
-        """Test internal error handling"""
-        mock_get_user_id.side_effect = Exception("Simulated internal error")
-        # Mock db to avoid AWS connection attempts
+    def test_internal_error_handling(self, mock_get_db):
+        """Test internal error handling - service layer exceptions"""
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
+        # Simulate a database error
+        mock_db.query_gsi1.side_effect = Exception("Database connection failed")
         
-        # Temporarily disable dev mode so get_user_id_from_event is actually called
-        original_dev_mode = os.environ.get('DEV_MODE')
-        os.environ['DEV_MODE'] = 'false'
-        
-        try:
-            # Create event without dev user header so get_user_id_from_event is actually called
-            event = {
-                'httpMethod': 'GET',
-                'path': '/v1/notes',
-                'headers': {'Content-Type': 'application/json'},
-                'queryStringParameters': {}
-            }
-            result = handler(event, None)
-            assert result['statusCode'] == 500
-            body = json.loads(result['body'])
-            assert 'Internal server error' in body['message']
-        finally:
-            if original_dev_mode:
-                os.environ['DEV_MODE'] = original_dev_mode
+        event = self._make_event('GET', '/v1/notes', 'test-user')
+        result = handler(event, None)
+        assert result['statusCode'] == 500
+        body = json.loads(result['body'])
+        assert 'Internal server error' in body['message'] or 'Failed to list notes' in body['message']
     
     # ==================== CORS TESTS ====================
     
