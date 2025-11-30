@@ -3,6 +3,7 @@ import { signOut } from 'aws-amplify/auth'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { FileText, Target, BarChart3 } from 'lucide-react'
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -36,31 +37,54 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Trading Journal</CardTitle>
-                <CardDescription>
-                  Record your trades, analyze performance, and track your progress
-                </CardDescription>
+          <div className="grid md:grid-cols-3 gap-6">
+            <Card className="h-full flex flex-col">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 px-6 pt-6">
+                <div className="space-y-2 flex-1">
+                  <CardTitle className="text-2xl">Trading Journal</CardTitle>
+                  <CardDescription className="text-base leading-relaxed">
+                    Record your trades, analyze performance, and track your progress
+                  </CardDescription>
+                </div>
+                <FileText className="h-10 w-10 text-muted-foreground ml-4 flex-shrink-0" />
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-6 pb-6 pt-0 mt-auto">
                 <Link to="/notes">
-                  <Button className="w-full">View Journal</Button>
+                  <Button className="w-full" size="lg">View Journal</Button>
                 </Link>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Strategies</CardTitle>
-                <CardDescription>
-                  Create and manage your trading strategies
-                </CardDescription>
+            <Card className="h-full flex flex-col">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 px-6 pt-6">
+                <div className="space-y-2 flex-1">
+                  <CardTitle className="text-2xl">Strategies</CardTitle>
+                  <CardDescription className="text-base leading-relaxed">
+                    Create and manage your trading strategies
+                  </CardDescription>
+                </div>
+                <Target className="h-10 w-10 text-muted-foreground ml-4 flex-shrink-0" />
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-6 pb-6 pt-0 mt-auto">
                 <Link to="/strategies">
-                  <Button className="w-full">View Strategies</Button>
+                  <Button className="w-full" size="lg">View Strategies</Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card className="h-full flex flex-col">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 px-6 pt-6">
+                <div className="space-y-2 flex-1">
+                  <CardTitle className="text-2xl">Summary</CardTitle>
+                  <CardDescription className="text-base leading-relaxed">
+                    View your trading statistics and profit & loss
+                  </CardDescription>
+                </div>
+                <BarChart3 className="h-10 w-10 text-muted-foreground ml-4 flex-shrink-0" />
+              </CardHeader>
+              <CardContent className="px-6 pb-6 pt-0 mt-auto">
+                <Link to="/summary">
+                  <Button className="w-full" size="lg">View Summary</Button>
                 </Link>
               </CardContent>
             </Card>

@@ -17,11 +17,11 @@ const noteSchema = z.object({
   text: z.string().optional(),
   direction: z.string().optional(),
   session: z.string().optional(),
-  risk: z.string().optional(),
-  win_amount: z.string().optional(),
+  risk: z.string().min(1, 'Risk amount is required'),
+  win_amount: z.string().min(1, 'Win amount is required'),
   tags: z.array(z.string()).optional(),
   strategyId: z.string().optional(),
-  hit_miss: z.string().optional(),
+  // hit_miss is validated separately since it's managed by Select component
 })
 
 type NoteFormData = z.infer<typeof noteSchema>
@@ -62,6 +62,7 @@ export default function NotesPage() {
   const [session, setSession] = useState<string>('')
   const [strategyId, setStrategyId] = useState<string>('')
   const [hitMiss, setHitMiss] = useState<string>('')
+  const [hitMissError, setHitMissError] = useState<string>('')
 
   const {
     register,
@@ -108,10 +109,24 @@ export default function NotesPage() {
 
   const onSubmit = async (data: NoteFormData) => {
     try {
+      // Validate required fields
+      setHitMissError('')
+      if (!hitMiss || hitMiss === '') {
+        setHitMissError('Hit/Miss is required')
+        return
+      }
+      if (!data.risk || data.risk === '') {
+        return // Handled by zod validation
+      }
+      if (!data.win_amount || data.win_amount === '') {
+        return // Handled by zod validation
+      }
+
       const noteData = {
         ...data,
-        risk: data.risk && data.risk !== '' ? parseFloat(data.risk) : undefined,
-        win_amount: data.win_amount && data.win_amount !== '' ? parseFloat(data.win_amount) : undefined,
+        risk: parseFloat(data.risk),
+        win_amount: parseFloat(data.win_amount),
+        hit_miss: hitMiss,
       }
       
       if (direction && direction !== '') {
@@ -122,9 +137,6 @@ export default function NotesPage() {
       }
       if (strategyId && strategyId !== '') {
         noteData.strategyId = strategyId
-      }
-      if (hitMiss && hitMiss !== '') {
-        noteData.hit_miss = hitMiss
       }
       
       if (editingNote) {
@@ -160,6 +172,7 @@ export default function NotesPage() {
     setSession(note.session || '')
     setStrategyId(note.strategyId || '')
     setHitMiss(note.hit_miss || '')
+    setHitMissError('')
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -181,6 +194,7 @@ export default function NotesPage() {
     setSession('')
     setStrategyId('')
     setHitMiss('')
+    setHitMissError('')
     setShowForm(false)
     setEditingNote(null)
   }
@@ -255,9 +269,12 @@ export default function NotesPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="hitMiss">Hit/Miss</Label>
-                    <Select value={hitMiss} onValueChange={setHitMiss}>
-                      <SelectTrigger>
+                    <Label htmlFor="hitMiss">Hit/Miss *</Label>
+                    <Select value={hitMiss} onValueChange={(value) => {
+                      setHitMiss(value)
+                      setHitMissError('')
+                    }}>
+                      <SelectTrigger className={hitMissError ? 'border-destructive' : ''}>
                         <SelectValue placeholder="Select result" />
                       </SelectTrigger>
                       <SelectContent>
@@ -265,26 +282,43 @@ export default function NotesPage() {
                         <SelectItem value="Miss">Miss</SelectItem>
                       </SelectContent>
                     </Select>
+                    {hitMissError && (
+                      <p className="text-sm text-destructive mt-1">
+                        {hitMissError}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <Label htmlFor="risk">Risk Amount</Label>
+                    <Label htmlFor="risk">Risk Amount *</Label>
                     <Input
                       id="risk"
                       type="number"
                       step="0.01"
                       placeholder="0.00"
                       {...register('risk')}
+                      className={errors.risk ? 'border-destructive' : ''}
                     />
+                    {errors.risk && (
+                      <p className="text-sm text-destructive mt-1">
+                        {errors.risk.message}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <Label htmlFor="win_amount">Win Amount</Label>
+                    <Label htmlFor="win_amount">Win Amount *</Label>
                     <Input
                       id="win_amount"
                       type="number"
                       step="0.01"
                       placeholder="0.00"
                       {...register('win_amount')}
+                      className={errors.win_amount ? 'border-destructive' : ''}
                     />
+                    {errors.win_amount && (
+                      <p className="text-sm text-destructive mt-1">
+                        {errors.win_amount.message}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="strategyId">Strategy</Label>
