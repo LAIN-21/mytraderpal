@@ -246,11 +246,70 @@ jobs:
           
           terraform plan
           terraform apply -auto-approve
-      
-      - name: Output Terraform values
+
+      - name: Get Terraform outputs
+        id: terraform-outputs
         working-directory: infra/terraform
         run: |
-          echo "API_URL=$(terraform output -raw api_url)" >> $GITHUB_ENV
-          echo "USER_POOL_ID=$(terraform output -raw user_pool_id)" >> $GITHUB_ENV
-          echo "USER_POOL_CLIENT_ID=$(terraform output -raw user_pool_client_id)" >> $GITHUB_ENV
+          API_URL=$(terraform output -raw api_url 2>/dev/null || echo "")
+          USER_POOL_ID=$(terraform output -raw user_pool_id 2>/dev/null || echo "")
+          USER_POOL_CLIENT_ID=$(terraform output -raw user_pool_client_id 2>/dev/null || echo "")
+          FRONTEND_URL=$(terraform output -raw frontend_url 2>/dev/null || echo "")
+          BUCKET_NAME=$(terraform output -raw frontend_bucket_name 2>/dev/null || echo "")
+          DISTRIBUTION_ID=$(terraform output -raw cloudfront_distribution_id 2>/dev/null || echo "")
+          
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+          echo "user_pool_id=$USER_POOL_ID" >> $GITHUB_OUTPUT
+          echo "user_pool_client_id=$USER_POOL_CLIENT_ID" >> $GITHUB_OUTPUT
+          echo "frontend_url=$FRONTEND_URL" >> $GITHUB_OUTPUT
+          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+          echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Build frontend for production
+        working-directory: src/frontend-react
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL || steps.terraform-outputs.outputs.api_url || 'http://localhost:9000' }}
+          VITE_USER_POOL_ID: ${{ secrets.VITE_USER_POOL_ID || steps.terraform-outputs.outputs.user_pool_id || '' }}
+          VITE_USER_POOL_CLIENT_ID: ${{ secrets.VITE_USER_POOL_CLIENT_ID || steps.terraform-outputs.outputs.user_pool_client_id || '' }}
+          VITE_AWS_REGION: ${{ secrets.VITE_AWS_REGION || secrets.AWS_REGION || 'us-east-1' }}
+        run: |
+          npm ci || npm install
+          npm run build
+          echo "Frontend built successfully"
+
+      - name: Deploy frontend to S3
+        working-directory: src/frontend-react
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          BUCKET_NAME: ${{ steps.terraform-outputs.outputs.bucket_name }}
+          DISTRIBUTION_ID: ${{ steps.terraform-outputs.outputs.distribution_id }}
+        run: |
+          if [ -z "$BUCKET_NAME" ]; then
+            echo "⚠️  S3 bucket not found, skipping frontend deployment"
+            exit 0
+          fi
+          
+          # Sync built files to S3
+          echo "Deploying to S3 bucket: $BUCKET_NAME"
+          aws s3 sync dist/ s3://$BUCKET_NAME --delete --region $AWS_REGION
+          
+          # Invalidate CloudFront cache
+          if [ ! -z "$DISTRIBUTION_ID" ]; then
+            echo "Invalidating CloudFront cache: $DISTRIBUTION_ID"
+            aws cloudfront create-invalidation \
+              --distribution-id $DISTRIBUTION_ID \
+              --paths "/*" \
+              --region $AWS_REGION
+          fi
+      
+      - name: Output deployment URLs
+        working-directory: infra/terraform
+        run: |
+          echo "✅ Deployment Complete!"
+          echo ""
+          echo "📊 Infrastructure:"
           terraform output
+          echo ""
+          echo "🌐 Frontend URL: $(terraform output -raw frontend_url 2>/dev/null || echo 'Not available')"
+          echo "🔌 API URL: $(terraform output -raw api_url 2>/dev/null || echo 'Not available')"

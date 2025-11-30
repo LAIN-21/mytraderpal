@@ -43,3 +43,18 @@ output "ecr_repository_name" {
   value       = module.ecr.repository_name
 }
 
+output "frontend_url" {
+  description = "Frontend CloudFront URL"
+  value       = module.frontend.cloudfront_url
+}
+
+output "frontend_bucket_name" {
+  description = "Frontend S3 Bucket Name"
+  value       = module.frontend.bucket_name
+}
+
+output "cloudfront_distribution_id" {
+  description = "CloudFront Distribution ID"
+  value       = module.frontend.cloudfront_distribution_id
+}
+

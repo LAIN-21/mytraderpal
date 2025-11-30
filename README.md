@@ -33,20 +33,49 @@ make stop      # Stop containers
 
 **CI/CD:** Push to `main` branch - deployment is automatic.
 
-## Environment Files
+## How It Works
 
-**Created automatically by `make install`:**
+**When you clone and run `make install` + `make start`:**
 
-- `src/app/.env` - Backend (local development)
-  - `TABLE_NAME=mtp_app`
-  - `DEV_MODE=true`
-  - `AWS_REGION=us-east-1`
+1. **Backend** (`src/app/.env`):
+   - `DEV_MODE=true` (default)
+   - Backend accepts `X-MTP-Dev-User` header for authentication
+   - All requests authenticated as "dev-user" (no Cognito needed)
 
-- `src/frontend-react/.env` - Frontend (local development)
-  - `VITE_API_URL=http://localhost:9000`
-  - `VITE_AWS_REGION=us-east-1`
-  - `VITE_USER_POOL_ID=` (optional for local)
-  - `VITE_USER_POOL_CLIENT_ID=` (optional for local)
+2. **Frontend** (`src/frontend-react/.env`):
+   - Cognito values empty (default)
+   - Frontend detects no Cognito config
+   - Automatically sends `X-MTP-Dev-User: dev-user` header
+   - All data saved to "dev-user" account
+
+**This is expected behavior for local development!**
+
+**If you set `DEV_MODE=false` in `src/app/.env`:**
+- Backend will require real Cognito authentication
+- Frontend must have `VITE_USER_POOL_ID` and `VITE_USER_POOL_CLIENT_ID` configured
+- Without Cognito, you'll get 401 Unauthorized errors
+
+## What Gets Deployed to AWS
+
+**On commit to `main` branch:**
+
+1. **Backend Code** (Docker image):
+   - `src/app/` - All Python code (main.py, api/, core/, services/, repositories/, models/)
+   - `requirements.txt` - Python dependencies
+   - Built into container image → Pushed to ECR → Deployed to Lambda
+
+2. **Frontend Code** (S3 + CloudFront):
+   - `src/frontend-react/` - All React/TypeScript code
+   - Built with `npm run build` → Deployed to S3 → Served via CloudFront
+   - Frontend URL available in Terraform outputs
+
+3. **Infrastructure** (Terraform):
+   - Lambda function (with new container image)
+   - API Gateway
+   - DynamoDB table
+   - Cognito (if not exists)
+   - S3 bucket (frontend hosting)
+   - CloudFront distribution (CDN for frontend)
 
 ## License
 

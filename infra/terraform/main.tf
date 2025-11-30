@@ -98,3 +98,11 @@ module "api_gateway" {
   cors_allowed_methods = var.cors_allowed_methods
 }
 
+# Frontend (S3 + CloudFront)
+module "frontend" {
+  source = "./modules/frontend"
+
+  bucket_name = var.frontend_bucket_name
+  environment = var.environment
+}
+

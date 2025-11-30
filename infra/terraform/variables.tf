@@ -114,3 +114,9 @@ variable "cors_allowed_methods" {
   default     = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 }
 
+variable "frontend_bucket_name" {
+  description = "S3 bucket name for frontend hosting"
+  type        = string
+  default     = "mytraderpal-frontend"
+}
+
