@@ -75,7 +75,7 @@ module "lambda" {
   environment_variables = {
     TABLE_NAME = module.dynamodb.table_name
     DEV_MODE   = var.dev_mode
-    AWS_REGION = var.aws_region
+    # AWS_REGION is automatically set by Lambda, don't set it manually
   }
 
   dynamodb_table_arn = module.dynamodb.table_arn
