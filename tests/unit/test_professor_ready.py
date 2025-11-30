@@ -93,9 +93,11 @@ class TestProfessorReady:
     
     # ==================== NOTES CRUD TESTS ====================
     
-    @patch('app.repositories.dynamodb.db')
-    def test_notes_create_success(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_notes_create_success(self, mock_get_db):
         """Test successful note creation"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.create_note_item.return_value = {
             'PK': 'USER#test-user',
             'SK': 'NOTE#note-123',
@@ -121,9 +123,11 @@ class TestProfessorReady:
         mock_db.create_note_item.assert_called_once()
         mock_db.put_item.assert_called_once()
     
-    @patch('app.repositories.dynamodb.db')
-    def test_notes_list_success(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_notes_list_success(self, mock_get_db):
         """Test successful notes listing"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.query_gsi1.return_value = {
             'Items': [
                 {
@@ -163,9 +167,11 @@ class TestProfessorReady:
             last_evaluated_key=None
         )
     
-    @patch('app.repositories.dynamodb.db')
-    def test_notes_list_with_pagination(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_notes_list_with_pagination(self, mock_get_db):
         """Test notes listing with pagination"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.query_gsi1.return_value = {
             'Items': [{'noteId': 'note-1', 'text': 'Test note'}],
             'LastEvaluatedKey': {'PK': 'USER#test-user', 'SK': 'NOTE#note-1'}
@@ -187,9 +193,11 @@ class TestProfessorReady:
             last_evaluated_key={'PK': 'USER#test-user'}
         )
     
-    @patch('app.repositories.dynamodb.db')
-    def test_notes_update_success(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_notes_update_success(self, mock_get_db):
         """Test successful note update"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.get_item.return_value = {'noteId': 'note-123', 'text': 'Original text'}
         mock_db.update_item.return_value = {
             'Attributes': {
@@ -215,9 +223,11 @@ class TestProfessorReady:
         mock_db.get_item.assert_called_once_with('USER#test-user', 'NOTE#note-123')
         mock_db.update_item.assert_called_once()
     
-    @patch('app.repositories.dynamodb.db')
-    def test_notes_update_not_found(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_notes_update_not_found(self, mock_get_db):
         """Test note update when note doesn't exist"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.get_item.return_value = None
         
         event = self._make_event('PATCH', '/v1/notes/nonexistent', 'test-user', {
@@ -232,9 +242,11 @@ class TestProfessorReady:
         mock_db.get_item.assert_called_once()
         mock_db.update_item.assert_not_called()
     
-    @patch('app.repositories.dynamodb.db')
-    def test_notes_delete_success(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_notes_delete_success(self, mock_get_db):
         """Test successful note deletion"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.get_item.return_value = {'noteId': 'note-123'}
         mock_db.delete_item.return_value = {'ResponseMetadata': {'HTTPStatusCode': 200}}
         
@@ -247,9 +259,11 @@ class TestProfessorReady:
         mock_db.get_item.assert_called_once_with('USER#test-user', 'NOTE#note-123')
         mock_db.delete_item.assert_called_once_with('USER#test-user', 'NOTE#note-123')
     
-    @patch('app.repositories.dynamodb.db')
-    def test_notes_delete_not_found(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_notes_delete_not_found(self, mock_get_db):
         """Test note deletion when note doesn't exist"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.get_item.return_value = None
         
         event = self._make_event('DELETE', '/v1/notes/nonexistent', 'test-user')
@@ -263,9 +277,11 @@ class TestProfessorReady:
     
     # ==================== STRATEGIES CRUD TESTS ====================
     
-    @patch('app.repositories.dynamodb.db')
-    def test_strategies_create_success(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_strategies_create_success(self, mock_get_db):
         """Test successful strategy creation"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.create_strategy_item.return_value = {
             'PK': 'USER#test-user',
             'SK': 'STRAT#strat-123',
@@ -291,9 +307,11 @@ class TestProfessorReady:
         mock_db.create_strategy_item.assert_called_once()
         mock_db.put_item.assert_called_once()
     
-    @patch('app.repositories.dynamodb.db')
-    def test_strategies_list_success(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_strategies_list_success(self, mock_get_db):
         """Test successful strategies listing"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.query_gsi1.return_value = {
             'Items': [
                 {
@@ -334,9 +352,11 @@ class TestProfessorReady:
             last_evaluated_key=None
         )
     
-    @patch('app.repositories.dynamodb.db')
-    def test_strategies_get_single_success(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_strategies_get_single_success(self, mock_get_db):
         """Test successful single strategy retrieval"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.get_item.return_value = {
             'strategyId': 'strat-123',
             'name': 'Test Strategy',
@@ -359,9 +379,11 @@ class TestProfessorReady:
         
         mock_db.get_item.assert_called_once_with('USER#test-user', 'STRAT#strat-123')
     
-    @patch('app.repositories.dynamodb.db')
-    def test_strategies_get_not_found(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_strategies_get_not_found(self, mock_get_db):
         """Test strategy retrieval when strategy doesn't exist"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.get_item.return_value = None
         
         event = self._make_event('GET', '/v1/strategies/nonexistent', 'test-user')
@@ -372,9 +394,11 @@ class TestProfessorReady:
         
         mock_db.get_item.assert_called_once()
     
-    @patch('app.repositories.dynamodb.db')
-    def test_strategies_update_success(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_strategies_update_success(self, mock_get_db):
         """Test successful strategy update"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.get_item.return_value = {'strategyId': 'strat-123', 'name': 'Original'}
         mock_db.update_item.return_value = {
             'Attributes': {
@@ -397,9 +421,11 @@ class TestProfessorReady:
         mock_db.get_item.assert_called_once()
         mock_db.update_item.assert_called_once()
     
-    @patch('app.repositories.dynamodb.db')
-    def test_strategies_delete_success(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_strategies_delete_success(self, mock_get_db):
         """Test successful strategy deletion"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.get_item.return_value = {'strategyId': 'strat-123'}
         mock_db.delete_item.return_value = {'ResponseMetadata': {'HTTPStatusCode': 200}}
         
@@ -414,9 +440,11 @@ class TestProfessorReady:
     
     # ==================== REPORTING TESTS ====================
     
-    @patch('app.repositories.dynamodb.db')
-    def test_reports_notes_summary_success(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_reports_notes_summary_success(self, mock_get_db):
         """Test successful notes summary reporting"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.query_gsi1.return_value = {
             'Items': [
                 {'hit_miss': 'HIT', 'session': 'MORNING', 'win_amount': 100, 'date': '2025-01-01'},
@@ -442,9 +470,11 @@ class TestProfessorReady:
             limit=200
         )
     
-    @patch('app.repositories.dynamodb.db')
-    def test_reports_with_date_filter(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_reports_with_date_filter(self, mock_get_db):
         """Test notes summary with date filtering"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.query_gsi1.return_value = {
             'Items': [
                 {'hit_miss': 'HIT', 'date': '2024-01-01'},  # Outside range
@@ -474,9 +504,13 @@ class TestProfessorReady:
         assert body['message'] == 'Not found'
     
     @patch('app.core.auth.get_user_id_from_event')
-    def test_internal_error_handling(self, mock_get_user_id):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_internal_error_handling(self, mock_get_db, mock_get_user_id):
         """Test internal error handling"""
         mock_get_user_id.side_effect = Exception("Simulated internal error")
+        # Mock db to avoid AWS connection attempts
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         
         event = self._make_event('GET', '/v1/notes', 'test-user')
         result = handler(event, None)
@@ -521,9 +555,11 @@ class TestProfessorReady:
         with pytest.raises(TypeError):
             decimal_default("not a decimal")
     
-    @patch('app.repositories.dynamodb.db')
-    def test_strategies_update_with_dsl_object(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_strategies_update_with_dsl_object(self, mock_get_db):
         """Test strategy update with DSL as object (should be JSON serialized)"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.get_item.return_value = {'strategyId': 'strat-123', 'name': 'Original'}
         mock_db.update_item.return_value = {
             'Attributes': {
@@ -546,9 +582,11 @@ class TestProfessorReady:
         # Verify the update call was made
         mock_db.update_item.assert_called_once()
     
-    @patch('app.repositories.dynamodb.db')
-    def test_strategies_update_with_dsl_string(self, mock_db):
+    @patch('app.repositories.dynamodb._get_db')
+    def test_strategies_update_with_dsl_string(self, mock_get_db):
         """Test strategy update with DSL as string (should pass through)"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
         mock_db.get_item.return_value = {'strategyId': 'strat-123', 'name': 'Original'}
         mock_db.update_item.return_value = {
             'Attributes': {

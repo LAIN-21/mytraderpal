@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { Amplify } from 'aws-amplify'
 import App from './App.tsx'
-import { config } from './lib/amplify-config'
+import { config } from './lib/amplify-config.ts'
 import './index.css'
 
 // Configure Amplify
