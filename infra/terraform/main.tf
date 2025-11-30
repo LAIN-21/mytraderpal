@@ -6,10 +6,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-    archive = {
-      source  = "hashicorp/archive"
-      version = "~> 2.4"
-    }
   }
 
   # Optional: Configure remote state backend
@@ -38,6 +34,13 @@ provider "aws" {
 # Data source for current AWS account
 data "aws_caller_identity" "current" {}
 
+# ECR Repository for Lambda container images
+module "ecr" {
+  source = "./modules/ecr"
+
+  repository_name = "${var.lambda_function_name}-repo"
+}
+
 # DynamoDB Table
 module "dynamodb" {
   source = "./modules/dynamodb"
@@ -56,17 +59,17 @@ module "cognito" {
   aws_account_id     = data.aws_caller_identity.current.account_id
 }
 
-# Lambda Function
+# Lambda Function (using container image)
 module "lambda" {
   source = "./modules/lambda"
 
   function_name = var.lambda_function_name
-  runtime       = var.lambda_runtime
   handler       = var.lambda_handler
   timeout       = var.lambda_timeout
 
-  source_code_path = var.lambda_source_code_path
-  requirements_path = var.lambda_requirements_path
+  # Use ECR image URI (format: <account>.dkr.ecr.<region>.amazonaws.com/<repo>:<tag>)
+  # Tag defaults to 'latest' but can be overridden via variable
+  image_uri = var.lambda_image_uri != "" ? var.lambda_image_uri : "${module.ecr.repository_url}:latest"
 
   environment_variables = {
     TABLE_NAME = module.dynamodb.table_name

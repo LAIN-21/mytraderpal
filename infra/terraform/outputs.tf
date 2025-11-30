@@ -33,3 +33,13 @@ output "lambda_function_arn" {
   value       = module.lambda.function_arn
 }
 
+output "ecr_repository_url" {
+  description = "ECR Repository URL for Lambda container images"
+  value       = module.ecr.repository_url
+}
+
+output "ecr_repository_name" {
+  description = "ECR Repository Name"
+  value       = module.ecr.repository_name
+}
+

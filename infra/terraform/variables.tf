@@ -52,16 +52,16 @@ variable "lambda_function_name" {
   default     = "mytraderpal-api"
 }
 
-variable "lambda_runtime" {
-  description = "Lambda runtime"
+variable "lambda_handler" {
+  description = "Lambda handler (for container images, this is the CMD)"
   type        = string
-  default     = "python3.11"
+  default     = "app.main.handler"
 }
 
-variable "lambda_handler" {
-  description = "Lambda handler"
+variable "lambda_image_uri" {
+  description = "Lambda container image URI (if empty, uses ECR repo with 'latest' tag)"
   type        = string
-  default     = "main.handler"
+  default     = ""
 }
 
 variable "lambda_timeout" {
@@ -70,17 +70,6 @@ variable "lambda_timeout" {
   default     = 30
 }
 
-variable "lambda_source_code_path" {
-  description = "Path to Lambda source code (relative to terraform directory)"
-  type        = string
-  default     = "../../src/app"
-}
-
-variable "lambda_requirements_path" {
-  description = "Path to Lambda requirements.txt (relative to terraform directory)"
-  type        = string
-  default     = "../../requirements.txt"
-}
 
 variable "api_name" {
   description = "API Gateway name"

@@ -1,0 +1,16 @@
+# Production Dockerfile for Lambda
+# This is used for AWS Lambda deployment (container images)
+FROM public.ecr.aws/lambda/python:3.11
+
+# Install dependencies
+COPY requirements.txt ${LAMBDA_TASK_ROOT}
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+# Copy to /var/task/app to match import structure (from app.api.router)
+COPY src/app ${LAMBDA_TASK_ROOT}/app
+
+# Set the Lambda handler
+# Handler is app.main.handler because code is at /var/task/app/
+CMD ["app.main.handler"]
+

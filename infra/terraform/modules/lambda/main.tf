@@ -1,51 +1,14 @@
-# Build Lambda package with dependencies
-resource "null_resource" "lambda_package" {
-  triggers = {
-    source_code_hash = sha256(join("", [
-      for f in fileset(var.source_code_path, "**") : filesha256("${var.source_code_path}/${f}")
-    ]))
-    requirements_hash = filemd5(var.requirements_path)
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      set -e
-      PACKAGE_DIR="${path.module}/.lambda_package"
-      rm -rf "$PACKAGE_DIR"
-      mkdir -p "$PACKAGE_DIR"
-      
-      # Copy source code
-      cp -r ${var.source_code_path}/* "$PACKAGE_DIR/" 2>/dev/null || true
-      
-      # Install dependencies
-      pip install -r ${var.requirements_path} -t "$PACKAGE_DIR" --quiet --disable-pip-version-check
-      
-      # Remove unnecessary files
-      find "$PACKAGE_DIR" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-      find "$PACKAGE_DIR" -type f -name "*.pyc" -delete 2>/dev/null || true
-    EOT
-  }
-}
-
-# Archive Lambda package
-data "archive_file" "lambda_zip" {
-  depends_on  = [null_resource.lambda_package]
-  type        = "zip"
-  source_dir  = "${path.module}/.lambda_package"
-  output_path = "${path.module}/lambda_package.zip"
-  excludes    = ["__pycache__", "*.pyc", ".pytest_cache", "*.dist-info", "*.egg-info"]
-}
-
-# Lambda Function
+# Lambda Function using container image
 resource "aws_lambda_function" "main" {
-  filename         = data.archive_file.lambda_zip.output_path
-  function_name    = var.function_name
-  role            = aws_iam_role.lambda.arn
-  handler         = var.handler
-  runtime         = var.runtime
-  timeout         = var.timeout
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  function_name = var.function_name
+  role          = aws_iam_role.lambda.arn
+  timeout       = var.timeout
+  package_type  = "Image"
 
+  # Container image URI (from ECR)
+  image_uri = var.image_uri
+
+  # Environment variables
   environment {
     variables = var.environment_variables
   }

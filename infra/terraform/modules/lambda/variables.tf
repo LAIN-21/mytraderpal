@@ -3,13 +3,8 @@ variable "function_name" {
   type        = string
 }
 
-variable "runtime" {
-  description = "Lambda runtime"
-  type        = string
-}
-
 variable "handler" {
-  description = "Lambda handler"
+  description = "Lambda handler (e.g., 'app.main.handler')"
   type        = string
 }
 
@@ -19,13 +14,8 @@ variable "timeout" {
   default     = 30
 }
 
-variable "source_code_path" {
-  description = "Path to Lambda source code"
-  type        = string
-}
-
-variable "requirements_path" {
-  description = "Path to requirements.txt"
+variable "image_uri" {
+  description = "ECR image URI for Lambda container image"
   type        = string
 }
 
