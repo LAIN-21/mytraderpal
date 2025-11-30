@@ -46,7 +46,7 @@ jobs:
           fail_ci_if_error: false
       
       - name: Upload HTML coverage report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: htmlcov/
@@ -64,8 +64,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: src/frontend-react/package-lock.json
       
       - name: Install dependencies
         working-directory: src/frontend-react
