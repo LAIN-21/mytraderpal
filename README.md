@@ -15,23 +15,104 @@ Application runs at:
 - Frontend: http://localhost:3000
 - Backend: http://localhost:9000
 
-**Prerequisites:** Docker Desktop installed and running
+## Prerequisites
+
+**Required:**
+- **Docker Desktop** - Install and ensure it's running
+  - Download: https://www.docker.com/products/docker-desktop
+  - Verify: `docker --version` and `docker info`
+- **Git** - For cloning the repository
+- **Make** - Usually pre-installed on Mac/Linux
+
+**Optional (for local testing):**
+- **Python 3.11+** - For running tests locally
+- **Node.js 18+** - For frontend development (Docker handles this automatically)
 
 ## Commands
 
 ```bash
-make test      # Run tests
-make logs      # View logs
-make stop      # Stop containers
+make install   # Setup environment and install dependencies
+make start     # Start all services (frontend + backend)
+make stop      # Stop all containers
+make restart   # Restart all containers
+make test      # Run tests (uses Python virtual environment)
+make logs      # View container logs
+make verify    # Verify services are running correctly
 ```
+
+## What `make install` Does
+
+The `make install` command automatically:
+1. ✅ Checks prerequisites (Docker, Make)
+2. ✅ Creates `.env` files:
+   - `src/app/.env` - Backend configuration (DEV_MODE, TABLE_NAME, AWS_REGION)
+   - `src/frontend-react/.env` - Frontend configuration (API URL, Cognito settings)
+3. ✅ Sets up Python virtual environment (`.venv`) and installs dependencies
+4. ✅ Installs frontend npm dependencies
+5. ✅ Checks for optional tools (Terraform, AWS CLI)
+
+**Note:** All `.env` files are created automatically with default values for local development.
 
 ## Production Deployment
 
-**Required GitHub Secrets:**
-- `AWS_ACCESS_KEY_ID` (required)
-- `AWS_SECRET_ACCESS_KEY` (required)
+### Required GitHub Secrets
 
-**CI/CD:** Push to `main` branch - deployment is automatic.
+For automatic deployment via CI/CD, you need to configure these GitHub Secrets:
+
+1. **`AWS_ACCESS_KEY_ID`** (required)
+2. **`AWS_SECRET_ACCESS_KEY`** (required)
+3. **`VITE_USER_POOL_ID`** (optional, for Cognito authentication)
+4. **`VITE_USER_POOL_CLIENT_ID`** (optional, for Cognito authentication)
+5. **`AWS_REGION`** (optional, defaults to `us-east-1`)
+6. **`DEV_MODE`** (optional, defaults to `false` for production)
+
+### How to Get AWS Credentials
+
+1. **Log in to AWS Console**: https://console.aws.amazon.com
+2. **Go to IAM** → Users → Your User → Security Credentials
+3. **Create Access Key**:
+   - Click "Create access key"
+   - Choose "Command Line Interface (CLI)" or "Application running outside AWS"
+   - Download or copy the credentials:
+     - **Access Key ID** → Use as `AWS_ACCESS_KEY_ID`
+     - **Secret Access Key** → Use as `AWS_SECRET_ACCESS_KEY`
+   - ⚠️ **Important**: Save these immediately - the secret key is only shown once!
+
+### How to Get Cognito Values (After First Deployment)
+
+After the first deployment, Cognito resources are created automatically. Get the values:
+
+1. **Via Terraform Output** (recommended):
+   ```bash
+   cd infra/terraform
+   terraform output user_pool_id
+   terraform output user_pool_client_id
+   ```
+
+2. **Via AWS Console**:
+   - Go to AWS Console → Cognito → User Pools
+   - Find your user pool (named `mytraderpal-users`)
+   - Copy the **User Pool ID**
+   - Go to App Integration → App Clients
+   - Copy the **Client ID**
+
+3. **Add to GitHub Secrets**:
+   - Go to your GitHub repository → Settings → Secrets and variables → Actions
+   - Add `VITE_USER_POOL_ID` and `VITE_USER_POOL_CLIENT_ID`
+   - These will be used in the next frontend build
+
+**Note**: On the first deployment, Cognito values won't exist yet. After the first successful deployment, add them to GitHub Secrets for subsequent deployments.
+
+### CI/CD Deployment
+
+**Automatic Deployment:** Push to `main` branch - deployment is automatic.
+
+The CI/CD pipeline will:
+1. Run tests (backend + frontend)
+2. Build Docker image for backend
+3. Deploy infrastructure with Terraform
+4. Build and deploy frontend to S3 + CloudFront
+5. Output deployment URLs in the workflow logs
 
 ## How It Works
 
