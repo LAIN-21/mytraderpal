@@ -143,15 +143,10 @@ jobs:
         with:
           terraform_version: 1.5.0
       
-      - name: Setup Python (for Lambda dependencies)
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      
-      - name: Deploy with Terraform
+      - name: Create ECR repository (if needed)
         working-directory: infra/terraform
         run: |
-          # Create terraform.tfvars from environment variables
+          # Create terraform.tfvars for ECR creation
           cat > terraform.tfvars <<EOF
           aws_region = "${{ secrets.AWS_REGION || 'us-east-1' }}"
           environment = "production"
@@ -161,8 +156,7 @@ jobs:
           dev_mode = "${{ secrets.DEV_MODE || 'false' }}"
           enable_cognito_auth = ${{ secrets.DEV_MODE == 'false' && 'true' || 'false' }}
           lambda_function_name = "mytraderpal-api"
-          lambda_runtime = "python3.11"
-          lambda_handler = "main.handler"
+          lambda_handler = "app.main.handler"
           lambda_timeout = 30
           api_name = "mytraderpal-api"
           cognito_callback_urls = ["https://*.amplifyapp.com/login"]
@@ -171,6 +165,60 @@ jobs:
           EOF
           
           terraform init
+          # Only create ECR repo (targeted apply)
+          terraform apply -target=module.ecr -auto-approve || true
+      
+      - name: Get ECR repository URL
+        working-directory: infra/terraform
+        id: ecr
+        run: |
+          ECR_URL=$(terraform output -raw ecr_repository_url 2>/dev/null || echo "")
+          if [ -z "$ECR_URL" ]; then
+            # ECR repo doesn't exist yet, will be created in full apply
+            ECR_URL=""
+          fi
+          echo "repository_url=$ECR_URL" >> $GITHUB_OUTPUT
+          echo "ECR URL: $ECR_URL"
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build and push Lambda container image
+        id: build-image
+        env:
+          ECR_REPOSITORY: mytraderpal-api-repo
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Get account ID and region
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          AWS_REGION=${{ secrets.AWS_REGION || 'us-east-1' }}
+          
+          # Build image URI
+          IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          LATEST_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:latest"
+          
+          # Build production Docker image
+          docker build -f infra/docker/Dockerfile.prod -t $IMAGE_URI -t $LATEST_URI .
+          
+          # Push both tags
+          docker push $IMAGE_URI
+          docker push $LATEST_URI
+          
+          # Output image URI for Terraform
+          echo "image_uri=$LATEST_URI" >> $GITHUB_OUTPUT
+          echo "Built and pushed: $IMAGE_URI and $LATEST_URI"
+      
+      - name: Deploy with Terraform
+        working-directory: infra/terraform
+        env:
+          LAMBDA_IMAGE_URI: ${{ steps.build-image.outputs.image_uri }}
+        run: |
+          # Update terraform.tfvars with image URI
+          cat >> terraform.tfvars <<EOF
+          lambda_image_uri = "$LAMBDA_IMAGE_URI"
+          EOF
+          
           terraform plan
           terraform apply -auto-approve
       
