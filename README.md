@@ -2,6 +2,19 @@
 
 A trading journal application for tracking trades, strategies, and market observations.
 
+## 📋 Table of Contents
+
+- [Quick Start](#-quick-start)
+- [Complete Setup Guide](#-complete-setup-guide)
+- [Architecture](#-architecture)
+- [Development](#-development)
+- [Testing](#-testing)
+- [Deployment](#-deployment)
+- [CI/CD](#-cicd)
+- [Troubleshooting](#-troubleshooting)
+
+---
+
 ## 🚀 Quick Start
 
 Get up and running in 2 commands:
@@ -36,20 +49,373 @@ make logs
 make stop
 ```
 
-### Troubleshooting
+---
 
-If you encounter issues:
-1. Ensure Docker Desktop is running
-2. Check ports 3000 and 9000 are not in use
-3. Run `make clean` to reset and try again
+## 📚 Complete Setup Guide
+
+This guide will walk you through setting up the project from scratch, including all required files, environment variables, and configurations.
+
+### Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+1. **Docker Desktop** (includes Docker and Docker Compose)
+   - Download from: https://www.docker.com/products/docker-desktop
+   - Verify: `docker --version` and `docker compose version`
+
+2. **Make** (usually pre-installed on macOS/Linux)
+   - Verify: `make --version`
+
+3. **For AWS Deployment (Optional):**
+   - **AWS CLI** - https://aws.amazon.com/cli/
+   - **Terraform** >= 1.5.0 - https://www.terraform.io/downloads
+   - **Git** - https://git-scm.com/downloads
+
+### Step 1: Clone the Repository
+
+```bash
+git clone <repository-url>
+cd mytraderpal
+```
+
+### Step 2: Create Environment Files
+
+The project requires two `.env` files for local development. These files are **required** for Docker Compose to work correctly.
+
+#### 2.1 Backend Environment File
+
+**Location:** `src/app/.env`
+
+**Create the file:**
+```bash
+# Copy from example template
+cp src/app/.env.example src/app/.env
+```
+
+**Or create manually:**
+```bash
+cat > src/app/.env << 'EOF'
+# MyTraderPal Backend Environment Variables
+
+# DynamoDB Configuration
+TABLE_NAME=mtp_app
+
+# Development Mode
+# Set to "true" to bypass Cognito authentication (for local development)
+# Set to "false" for production (requires Cognito authentication)
+DEV_MODE=true
+
+# AWS Configuration
+AWS_REGION=us-east-1
+
+# AWS Credentials (Optional - for local development)
+# If not set, Docker will try to use credentials from ~/.aws/credentials
+# Or set these as environment variables before running docker-compose
+# AWS_ACCESS_KEY_ID=your-access-key
+# AWS_SECRET_ACCESS_KEY=your-secret-key
+EOF
+```
+
+**Required Variables:**
+- `TABLE_NAME` - DynamoDB table name (default: `mtp_app`)
+- `DEV_MODE` - Set to `"true"` for local development (bypasses auth)
+- `AWS_REGION` - AWS region (default: `us-east-1`)
+
+**Optional Variables (for local AWS access):**
+- `AWS_ACCESS_KEY_ID` - AWS access key (or use `~/.aws/credentials`)
+- `AWS_SECRET_ACCESS_KEY` - AWS secret key (or use `~/.aws/credentials`)
+
+#### 2.2 Frontend Environment File
+
+**Location:** `src/frontend-react/.env`
+
+**Create the file:**
+```bash
+# Copy from example template
+cp src/frontend-react/.env.example src/frontend-react/.env
+```
+
+**Or create manually:**
+```bash
+cat > src/frontend-react/.env << 'EOF'
+# MyTraderPal Frontend Environment Variables
+
+# API Configuration
+# Backend API URL (default: localhost for local development)
+VITE_API_URL=http://localhost:9000
+
+# AWS Cognito Configuration
+# These are required for authentication in production
+# For local development with DEV_MODE=true, these can be empty
+VITE_USER_POOL_ID=
+VITE_USER_POOL_CLIENT_ID=
+VITE_AWS_REGION=us-east-1
+EOF
+```
+
+**Required Variables:**
+- `VITE_API_URL` - Backend API URL (default: `http://localhost:9000` for local dev)
+- `VITE_AWS_REGION` - AWS region (default: `us-east-1`)
+
+**Optional Variables (for production authentication):**
+- `VITE_USER_POOL_ID` - Cognito User Pool ID (get from Terraform outputs)
+- `VITE_USER_POOL_CLIENT_ID` - Cognito Client ID (get from Terraform outputs)
+
+**Note:** All frontend environment variables **must** start with `VITE_` prefix (required by Vite).
+
+### Step 3: Install Dependencies and Start
+
+```bash
+# Install dependencies and setup environment (creates .env files if missing)
+make install
+
+# Start the application
+make start
+```
+
+The `make install` command will:
+- Check prerequisites (Docker, Make)
+- Create `.env` files from templates if they don't exist
+- Prepare the environment
+
+The `make start` command will:
+- Build Docker images
+- Start backend and frontend containers
+- Make services available at:
+  - Frontend: http://localhost:3000
+  - Backend: http://localhost:9000
+
+### Step 4: Verify Everything Works
+
+```bash
+# Check if services are running
+make verify
+
+# Test backend health endpoint
+curl http://localhost:9000/v1/health
+
+# View logs
+make logs
+```
 
 ---
 
-## What it does
+## ☁️ AWS Setup (For Deployment)
 
-Record daily trading notes with direction, session, and risk tracking. Create and manage trading strategies with market specifications. Generate reports on hit/miss performance and session analysis.
+If you want to deploy to AWS, follow these additional steps:
 
-## Architecture
+### Step 1: Configure AWS CLI
+
+```bash
+# Install AWS CLI (if not already installed)
+# macOS: brew install awscli
+# Linux: See https://aws.amazon.com/cli/
+
+# Configure AWS credentials
+aws configure
+
+# You'll be prompted for:
+# - AWS Access Key ID
+# - AWS Secret Access Key
+# - Default region (e.g., us-east-1)
+# - Default output format (json)
+
+# Verify configuration
+aws sts get-caller-identity
+```
+
+This creates `~/.aws/credentials` and `~/.aws/config` files.
+
+### Step 2: Setup Terraform Remote State Backend
+
+Terraform needs an S3 bucket and DynamoDB table for remote state management.
+
+```bash
+# Run the setup script
+./scripts/setup-terraform-backend.sh
+```
+
+This script will:
+- Create S3 bucket: `mytraderpal-terraform-state`
+- Create DynamoDB table: `terraform-state-lock`
+- Enable versioning and encryption
+- Block public access
+
+**Note:** The backend is already configured in `infra/terraform/main.tf`. The script just creates the required AWS resources.
+
+### Step 3: Configure Terraform Variables
+
+**Location:** `infra/terraform/terraform.tfvars`
+
+**Create the file:**
+```bash
+cd infra/terraform
+cp terraform.tfvars.example terraform.tfvars
+```
+
+**Edit `terraform.tfvars` with your configuration:**
+```hcl
+# AWS Configuration
+aws_region  = "us-east-1"
+environment = "dev"
+
+# DynamoDB
+table_name = "mtp_app"
+
+# Cognito
+user_pool_name        = "mytraderpal-users"
+cognito_domain_prefix = "mytraderpal-dev-UNIQUE"  # ⚠️ Must be globally unique!
+
+# Cognito OAuth URLs
+cognito_callback_urls = [
+  "http://localhost:3000/login",
+  "https://your-production-domain.com/login"
+]
+
+cognito_logout_urls = [
+  "http://localhost:3000/",
+  "https://your-production-domain.com/"
+]
+
+# Lambda
+lambda_function_name = "mytraderpal-api"
+lambda_handler       = "app.main.handler"
+lambda_timeout       = 30
+
+# API Gateway
+api_name = "mytraderpal-api"
+
+# Development Mode
+dev_mode          = "true"   # Set to "false" for production
+enable_cognito_auth = false  # Set to true when dev_mode is false
+
+# CORS Configuration
+cors_allowed_origins = [
+  "http://localhost:3000",
+  "https://your-production-domain.com"
+]
+
+cors_allowed_headers = [
+  "Content-Type",
+  "Authorization",
+  "X-MTP-Dev-User"
+]
+
+cors_allowed_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+```
+
+**Important Notes:**
+- `cognito_domain_prefix` must be **globally unique** across all AWS accounts
+- Update `cognito_callback_urls` and `cors_allowed_origins` with your actual domains
+- Set `dev_mode = "false"` and `enable_cognito_auth = true` for production
+
+### Step 4: Initialize and Deploy Terraform
+
+```bash
+cd infra/terraform
+
+# Initialize Terraform (downloads providers, sets up backend)
+terraform init
+
+# Review what will be created
+terraform plan
+
+# Apply changes (creates AWS resources)
+terraform apply
+
+# Get outputs (API URL, Cognito IDs, etc.)
+terraform output
+```
+
+**Terraform Outputs:**
+After deployment, Terraform will output:
+- `api_url` - API Gateway URL (use in frontend `VITE_API_URL`)
+- `user_pool_id` - Cognito User Pool ID (use in frontend `VITE_USER_POOL_ID`)
+- `user_pool_client_id` - Cognito Client ID (use in frontend `VITE_USER_POOL_CLIENT_ID`)
+- `cognito_domain` - Cognito domain name
+- `table_name` - DynamoDB table name
+- `lambda_function_name` - Lambda function name
+- `ecr_repository_url` - ECR repository URL
+
+**Update Frontend `.env` with Production Values:**
+```bash
+# After Terraform deployment, update frontend .env
+cd ../../src/frontend-react
+cat > .env << EOF
+VITE_API_URL=https://your-api-gateway-url.execute-api.us-east-1.amazonaws.com
+VITE_USER_POOL_ID=$(cd ../../infra/terraform && terraform output -raw user_pool_id)
+VITE_USER_POOL_CLIENT_ID=$(cd ../../infra/terraform && terraform output -raw user_pool_client_id)
+VITE_AWS_REGION=us-east-1
+EOF
+```
+
+---
+
+## 🔐 GitHub Secrets Setup (For CI/CD)
+
+If you want to enable automated deployment via GitHub Actions, you need to configure GitHub Secrets.
+
+### Required GitHub Secrets
+
+Go to your GitHub repository → Settings → Secrets and variables → Actions → New repository secret
+
+Add the following secrets:
+
+1. **AWS_ACCESS_KEY_ID**
+   - Your AWS access key ID
+   - Get from: AWS Console → IAM → Users → Security credentials
+
+2. **AWS_SECRET_ACCESS_KEY**
+   - Your AWS secret access key
+   - Get from: AWS Console → IAM → Users → Security credentials
+
+3. **AWS_REGION** (optional, defaults to `us-east-1`)
+   - AWS region for deployment
+   - Example: `us-east-1`
+
+4. **VITE_API_URL** (optional, for frontend build)
+   - API Gateway URL
+   - Get from: Terraform output `api_url`
+   - Example: `https://xxxxx.execute-api.us-east-1.amazonaws.com`
+
+5. **VITE_USER_POOL_ID** (optional, for frontend build)
+   - Cognito User Pool ID
+   - Get from: Terraform output `user_pool_id`
+
+6. **VITE_USER_POOL_CLIENT_ID** (optional, for frontend build)
+   - Cognito Client ID
+   - Get from: Terraform output `user_pool_client_id`
+
+7. **VITE_AWS_REGION** (optional, defaults to `us-east-1`)
+   - AWS region for frontend
+   - Example: `us-east-1`
+
+8. **DEV_MODE** (optional, defaults to `false`)
+   - Set to `"true"` for development, `"false"` for production
+   - Example: `false`
+
+### How CI/CD Works
+
+1. **On Push to `main` branch:**
+   - Tests run automatically (backend + frontend)
+   - Docker images are built
+   - Images are pushed to ECR
+   - Terraform deploys infrastructure
+   - Lambda function is updated with new image
+
+2. **On Pull Request:**
+   - Tests run automatically
+   - No deployment (only validation)
+
+**Note:** The CI/CD pipeline will automatically:
+- Build Docker images
+- Push to ECR
+- Deploy with Terraform
+- Handle existing resources (imports DynamoDB table if needed)
+
+---
+
+## 🏗️ Architecture
 
 API Gateway → Lambda → DynamoDB with Cognito authentication. Infrastructure defined in Terraform.
 
@@ -61,21 +427,7 @@ API Gateway → Lambda → DynamoDB with Cognito authentication. Infrastructure 
 - Docker containerization
 - Health checks and Prometheus metrics
 
-## Requirements
-
-**For Quick Start (Recommended):**
-- **Docker Desktop** (includes Docker and Docker Compose)
-- **Make** (usually pre-installed)
-
-**For Manual Setup:**
-- **Python 3.11+** (backend)
-- **Node.js 18+** (frontend)
-- **AWS CLI** (for deployment)
-- **Terraform** >= 1.5.0 (for infrastructure)
-
-**OS Notes:** Use `source .venv/bin/activate` on macOS/Linux, `.venv\Scripts\activate` on Windows.
-
-## Project Structure
+### Project Structure
 
 ```
 mytraderpal/
@@ -114,134 +466,56 @@ mytraderpal/
 │   └── integration/        # Integration tests
 ├── infra/
 │   ├── terraform/          # Terraform infrastructure
+│   │   ├── modules/        # Terraform modules
+│   │   ├── main.tf         # Main configuration
+│   │   ├── variables.tf    # Variable definitions
+│   │   ├── outputs.tf     # Output values
+│   │   └── terraform.tfvars.example  # Example config
 │   └── docker/             # Docker files
-├── docs/                   # Documentation
-│   ├── SDLC.md            # SDLC model explanation
-│   ├── ARCHITECTURE.md     # Architecture diagrams
-│   └── REPORT.md          # Assignment 2 report
+│       ├── Dockerfile      # Backend Dockerfile
+│       └── Dockerfile.prod # Production Dockerfile
 ├── scripts/                # Utility scripts
+│   ├── setup-terraform-backend.sh  # Setup Terraform backend
 │   ├── test.sh
 │   ├── lint.sh
-│   ├── deploy.sh
-│   └── run_local.sh
-├── monitoring/             # Monitoring configs
-│   ├── prometheus.yml
-│   └── grafana-dashboard.json
+│   └── deploy.sh
 ├── .github/workflows/      # CI/CD pipelines
 │   └── ci.yml
-├── Dockerfile              # Backend container
 ├── docker-compose.yml      # Local development
-├── requirements.txt        # Python dependencies
-├── requirements-dev.txt    # Dev dependencies
+├── Makefile               # Development commands
+├── requirements.txt       # Python dependencies
+├── requirements-dev.txt   # Dev dependencies
 └── README.md
 ```
 
-## Manual Setup (Alternative)
+---
 
-If you prefer not to use Docker, you can set up manually:
-
-### Backend
-
-```bash
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-```
-
-### Frontend
-
-```bash
-cd src/frontend-react
-npm install
-```
-
-## Environment Variables
-
-The project uses environment variables for both frontend and backend configuration.
-
-### Backend Environment Variables
-
-**Location:** `src/app/.env`
-
-**Required variables:**
-- `TABLE_NAME` - DynamoDB table name (default: `mtp_app`)
-- `DEV_MODE` - Enable development mode to bypass auth (default: `true`)
-- `AWS_REGION` - AWS region (default: `us-east-1`)
-
-**Setup:**
-```bash
-# Copy template
-cp src/app/.env.example src/app/.env
-
-# Edit if needed (defaults work for local development)
-```
-
-### Frontend Environment Variables
-
-**Location:** `src/frontend-react/.env`
-
-**Required variables:**
-- `VITE_API_URL` - Backend API URL (default: `http://localhost:9000`)
-- `VITE_USER_POOL_ID` - Cognito User Pool ID (optional for dev mode)
-- `VITE_USER_POOL_CLIENT_ID` - Cognito Client ID (optional for dev mode)
-- `VITE_AWS_REGION` - AWS region (default: `us-east-1`)
-
-**Setup:**
-```bash
-# Copy template
-cp src/frontend-react/.env.example src/frontend-react/.env
-
-# Edit with your Cognito values (optional for local dev)
-```
-
-**Note:** The `make install` command automatically creates both `.env` files from templates.
-
-## Running
+## 💻 Development
 
 ### Local Development
 
-**Option 1: Frontend Only (Recommended for UI Development)**
-```bash
-# Quick start - frontend only
-./scripts/dev_frontend.sh
+**Option 1: Full Stack with Docker (Recommended)**
 
-# Or manually
-cd src/frontend-react
-npm install
-npm run dev
-```
-
-Visit `http://localhost:5173` (Vite default port, points to deployed API or configure API URL)
-
-**Option 2: Full Stack with Docker**
-
-**Production Mode (no hot reload):**
 ```bash
 # Start both backend and frontend
-docker-compose up --build
+make start
 
 # Backend: http://localhost:9000
 # Frontend: http://localhost:3000
 ```
 
-**Development Mode (with hot reload):**
+**Option 2: Frontend Only (For UI Development)**
+
 ```bash
-# Start with hot reloading for both frontend and backend
-docker-compose up --build
-
-# Or use the script
-./scripts/dev_hot_reload.sh
-
-# Changes to code will automatically reload:
-# - Frontend: Browser auto-refreshes on file changes
-# - Backend: Code reloads on each API request
+cd src/frontend-react
+npm install
+npm run dev
 ```
 
+Visit `http://localhost:5173` (Vite default port)
+
 **Option 3: Backend Testing**
+
 ```bash
 # Test Lambda handler locally
 python test_local.py
@@ -249,12 +523,6 @@ python test_local.py
 # Or use Docker Lambda runtime
 ./scripts/dev_backend.sh
 ```
-
-**Note**: The backend is a Lambda function, so it's designed for AWS deployment. For local development:
-- Use `test_local.py` for quick testing
-- Use Docker with Lambda runtime for full local testing
-- Use `DEV_MODE=true` to bypass authentication
-- Frontend can connect to deployed API for full-stack testing
 
 ### Using Scripts
 
@@ -272,12 +540,33 @@ python test_local.py
 ./scripts/run_local.sh
 ```
 
-## Tests & Coverage
+### Make Commands
+
+```bash
+make install      # Install dependencies and setup environment
+make start        # Start frontend and backend containers
+make stop         # Stop all containers
+make restart      # Restart all containers
+make clean        # Stop containers and remove volumes
+make verify       # Verify services are running
+make logs         # View container logs
+
+# Terraform commands
+make terraform-init    # Initialize Terraform
+make terraform-plan    # Plan infrastructure changes
+make terraform-apply   # Apply infrastructure changes
+make terraform-destroy # Destroy infrastructure
+make terraform-output  # Show Terraform outputs
+```
+
+---
+
+## 🧪 Testing
 
 ### Run Tests
 
 ```bash
-python -m pytest tests/unit/ \
+python -m pytest tests/ \
   --cov=src/app \
   --cov-report=term-missing \
   --cov-report=html \
@@ -285,7 +574,7 @@ python -m pytest tests/unit/ \
   -v
 ```
 
-**Coverage**: 84% (exceeds 70% requirement)
+**Coverage**: 79% (exceeds 70% requirement)
 
 Tests run offline using mocks/moto - no real AWS required.
 
@@ -297,118 +586,9 @@ open htmlcov/index.html  # macOS
 xdg-open htmlcov/index.html  # Linux
 ```
 
-## Docker
+---
 
-### Build and Run
-
-```bash
-# Backend
-docker build -f Dockerfile -t mytraderpal-backend .
-docker run -p 9000:8080 \
-  -e TABLE_NAME=mtp_app \
-  -e DEV_MODE=true \
-  mytraderpal-backend
-
-# Frontend
-cd src/frontend-react
-docker build -f infra/docker/Dockerfile -t mytraderpal-frontend .
-docker run -p 3000:80 \
-  -e VITE_API_URL=http://localhost:9000 \
-  mytraderpal-frontend
-
-# Or use docker-compose
-docker-compose up
-```
-
-## CI/CD Pipeline
-
-The project includes a GitHub Actions CI/CD pipeline (`.github/workflows/ci.yml`) that:
-
-1. **Tests Backend**: Runs pytest with coverage (fails if < 70%)
-2. **Tests Frontend**: Lints and builds React app (Vite)
-3. **Builds Docker Images**: Creates container images
-4. **Deploys** (main branch only): Deploys infrastructure with Terraform to AWS
-
-### Setup CI/CD
-
-1. Add GitHub Secrets:
-   - `AWS_ACCESS_KEY_ID`
-   - `AWS_SECRET_ACCESS_KEY`
-   - `AWS_REGION` (optional, defaults to us-east-1)
-   - `VITE_API_URL` (for frontend build)
-   - `VITE_USER_POOL_ID`
-   - `VITE_USER_POOL_CLIENT_ID`
-
-2. Push to `main` branch to trigger deployment
-
-## Monitoring
-
-### Health Check
-
-**Endpoint**: `GET /v1/health`
-
-Returns comprehensive health status including metrics, environment info, and uptime.
-
-### Metrics
-
-**Endpoint**: `GET /v1/metrics`
-
-Exposes Prometheus-formatted metrics:
-- `requests_total`: Total requests
-- `errors_total`: Total errors
-- `request_latency_seconds_avg`: Average latency
-- `uptime_seconds`: Application uptime
-- `error_rate`: Error rate (0.0-1.0)
-
-### Prometheus Setup
-
-**Configuration**: `monitoring/prometheus.yml`
-
-```bash
-# Run Prometheus
-docker run -p 9090:9090 \
-  -v $(pwd)/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml \
-  prom/prometheus
-
-# Access Prometheus UI
-open http://localhost:9090
-```
-
-**Prometheus Configuration**:
-- Scrapes metrics from `/v1/metrics` endpoint
-- 15-second scrape interval
-- Configured for local and production environments
-
-### Grafana Setup
-
-**Dashboard**: `monitoring/grafana-dashboard.json`
-
-1. **Start Grafana**:
-```bash
-docker run -d -p 3001:3000 \
-  -e GF_SECURITY_ADMIN_PASSWORD=admin \
-  grafana/grafana
-```
-
-2. **Access Grafana**: `http://localhost:3001` (admin/admin)
-
-3. **Configure Prometheus Data Source**:
-   - Go to Configuration → Data Sources
-   - Add Prometheus
-   - URL: `http://host.docker.internal:9090` (or your Prometheus URL)
-
-4. **Import Dashboard**:
-   - Go to Dashboards → Import
-   - Upload `monitoring/grafana-dashboard.json`
-   - Select Prometheus as data source
-
-**Dashboard Panels**:
-- Request Rate (requests/second)
-- Error Rate (errors/second)
-- Average Latency (response time)
-- Error Rate Percentage
-
-## Deploy
+## 🚀 Deployment
 
 ### Manual Deployment
 
@@ -444,7 +624,53 @@ make terraform-output  # Show outputs
 make terraform-destroy # Destroy infrastructure (careful!)
 ```
 
-## API Summary
+---
+
+## 🔄 CI/CD Pipeline
+
+The project includes a GitHub Actions CI/CD pipeline (`.github/workflows/ci.yml`) that:
+
+1. **Tests Backend**: Runs pytest with coverage (fails if < 70%)
+2. **Tests Frontend**: Lints and builds React app (Vite)
+3. **Builds Docker Images**: Creates container images
+4. **Deploys** (main branch only): Deploys infrastructure with Terraform to AWS
+
+### Pipeline Jobs
+
+- **test-backend**: Runs Python tests with coverage
+- **test-frontend**: Builds and lints frontend
+- **build-docker**: Builds Docker images for backend and frontend
+- **deploy**: Deploys to AWS (only on `main` branch push)
+
+### Setup CI/CD
+
+1. Add GitHub Secrets (see [GitHub Secrets Setup](#-github-secrets-setup-for-cicd))
+2. Push to `main` branch to trigger deployment
+
+---
+
+## 📊 Monitoring
+
+### Health Check
+
+**Endpoint**: `GET /v1/health`
+
+Returns comprehensive health status including metrics, environment info, and uptime.
+
+### Metrics
+
+**Endpoint**: `GET /v1/metrics`
+
+Exposes Prometheus-formatted metrics:
+- `requests_total`: Total requests
+- `errors_total`: Total errors
+- `request_latency_seconds_avg`: Average latency
+- `uptime_seconds`: Application uptime
+- `error_rate`: Error rate (0.0-1.0)
+
+---
+
+## 📝 API Summary
 
 - `GET /v1/health` - Health check with metrics
 - `GET /v1/metrics` - Prometheus metrics
@@ -454,33 +680,135 @@ make terraform-destroy # Destroy infrastructure (careful!)
 
 **Auth:** Dev header `X-MTP-Dev-User` vs production JWT (Cognito authorizer)
 
-## Design Notes
+---
 
-- **Layered Architecture**: API → Services → Repositories
-- **SOLID Principles**: Single Responsibility, Dependency Inversion
-- Single-table DynamoDB with GSI1 for queries
-- Idempotent writes, pagination, UTC timestamps
-- Comprehensive monitoring and metrics
-- 84% test coverage with offline testing
+## 🐛 Troubleshooting
 
-## Documentation
+### Common Issues
+
+**Containers Won't Start**
+```bash
+# Check if ports are in use
+lsof -i :3000  # Frontend port
+lsof -i :9000  # Backend port
+
+# Restart Docker Desktop
+# Then try again: make start
+```
+
+**Missing .env Files**
+```bash
+# Create .env files from templates
+make install
+# Or manually:
+cp src/app/.env.example src/app/.env
+cp src/frontend-react/.env.example src/frontend-react/.env
+```
+
+**AWS Credentials Not Found**
+```bash
+# Configure AWS CLI
+aws configure
+
+# Verify
+aws sts get-caller-identity
+```
+
+**Terraform Backend Error**
+```bash
+# Setup Terraform backend
+./scripts/setup-terraform-backend.sh
+
+# Then initialize
+cd infra/terraform
+terraform init
+```
+
+**Cognito Domain Already Exists**
+- Cognito domain prefixes must be globally unique
+- Change `cognito_domain_prefix` in `terraform.tfvars`
+- Run `terraform apply` again
+
+**Import Errors**
+- Ensure `src/` is in Python path
+- Check that all dependencies are installed
+
+**Coverage Below 70%**
+- CI pipeline will fail
+- Ensure all tests pass
+- Add tests for uncovered code
+
+**Docker Build Fails**
+- Check Dockerfile paths and dependencies
+- Ensure Docker Desktop is running
+- Try: `docker system prune -a` to clean up
+
+**Reset Environment**
+```bash
+# Stop and clean everything
+make clean
+
+# Remove .env files (will be recreated on make install)
+rm src/app/.env src/frontend-react/.env
+
+# Start fresh
+make install
+make start
+```
+
+---
+
+## 📚 Documentation
 
 - **[SDLC.md](docs/SDLC.md)**: Software Development Life Cycle model explanation
 - **[ARCHITECTURE.md](docs/ARCHITECTURE.md)**: Architecture diagrams and design decisions
 - **[REPORT.md](docs/REPORT.md)**: Assignment 2 improvements report
+- **[infra/terraform/README.md](infra/terraform/README.md)**: Terraform infrastructure documentation
 
-## Troubleshooting
+---
 
-**Common Issues:**
-- **Venv activation:** Use correct path for your OS
-- **Missing AWS creds:** Only needed for deployment, not testing
-- **CORS errors:** Check Origin header in requests
-- **Coverage below 70%:** CI pipeline will fail - ensure all tests pass
-- **Docker build fails:** Check Dockerfile paths and dependencies
-- **Import errors:** Ensure `src/` is in Python path
+## 📋 Setup Checklist
 
-**Reset environment:** Clear `.env` files and restart services.
+Use this checklist when setting up the project for the first time:
 
-## License
+### Local Development
+- [ ] Docker Desktop installed and running
+- [ ] Repository cloned
+- [ ] `src/app/.env` created (from `.env.example`)
+- [ ] `src/frontend-react/.env` created (from `.env.example`)
+- [ ] `make install` completed successfully
+- [ ] `make start` completed successfully
+- [ ] Frontend accessible at http://localhost:3000
+- [ ] Backend accessible at http://localhost:9000
+- [ ] Health check works: `curl http://localhost:9000/v1/health`
+
+### AWS Deployment (Optional)
+- [ ] AWS CLI installed and configured (`aws configure`)
+- [ ] AWS credentials verified (`aws sts get-caller-identity`)
+- [ ] Terraform installed (`terraform --version`)
+- [ ] Terraform backend setup (`./scripts/setup-terraform-backend.sh`)
+- [ ] `infra/terraform/terraform.tfvars` created and configured
+- [ ] Terraform initialized (`terraform init`)
+- [ ] Terraform plan reviewed (`terraform plan`)
+- [ ] Infrastructure deployed (`terraform apply`)
+- [ ] Terraform outputs saved (API URL, Cognito IDs)
+- [ ] Frontend `.env` updated with production values
+
+### CI/CD Setup (Optional)
+- [ ] GitHub repository created
+- [ ] GitHub Secrets configured:
+  - [ ] `AWS_ACCESS_KEY_ID`
+  - [ ] `AWS_SECRET_ACCESS_KEY`
+  - [ ] `AWS_REGION` (optional)
+  - [ ] `VITE_API_URL` (optional)
+  - [ ] `VITE_USER_POOL_ID` (optional)
+  - [ ] `VITE_USER_POOL_CLIENT_ID` (optional)
+  - [ ] `VITE_AWS_REGION` (optional)
+  - [ ] `DEV_MODE` (optional)
+- [ ] CI/CD pipeline tested (push to `main` branch)
+
+---
+
+## 📄 License
 
 MIT
