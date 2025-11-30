@@ -162,6 +162,8 @@ jobs:
           cognito_callback_urls = ["https://*.amplifyapp.com/login"]
           cognito_logout_urls = ["https://*.amplifyapp.com/"]
           cors_allowed_origins = ["https://*.amplifyapp.com"]
+          cors_allowed_headers = ["Content-Type", "Authorization", "X-MTP-Dev-User"]
+          cors_allowed_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
           EOF
           
           terraform init

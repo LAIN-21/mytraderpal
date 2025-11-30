@@ -22,13 +22,11 @@ cognito_logout_urls = [
 
 # Lambda
 lambda_function_name = "mytraderpal-api"
-lambda_runtime       = "python3.11"
-lambda_handler       = "main.handler"
+lambda_handler       = "app.main.handler"  # For container images
 lambda_timeout       = 30
 
-# Paths (relative to terraform directory)
-lambda_source_code_path = "../../src/app"
-lambda_requirements_path = "../../requirements.txt"
+# Lambda container image (set by CI/CD, leave empty for manual deployment)
+# lambda_image_uri = ""  # Will use ECR repo:latest if empty
 
 # API Gateway
 api_name = "mytraderpal-api"

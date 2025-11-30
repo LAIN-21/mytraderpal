@@ -2,7 +2,7 @@ resource "aws_cognito_user_pool" "main" {
   name = var.user_pool_name
 
   # Sign-in configuration
-  alias_attributes = ["email"]
+  # Use username_attributes to allow email as username
   username_attributes = ["email"]
 
   # Auto-verify email

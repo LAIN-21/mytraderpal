@@ -8,15 +8,16 @@ terraform {
     }
   }
 
-  # Optional: Configure remote state backend
-  # Uncomment and configure for team collaboration
-  # backend "s3" {
-  #   bucket         = "mytraderpal-terraform-state"
-  #   key            = "terraform.tfstate"
-  #   region         = "us-east-1"
-  #   encrypt        = true
-  #   dynamodb_table = "terraform-state-lock"
-  # }
+  # Remote state backend (REQUIRED for CI/CD)
+  # S3 bucket and DynamoDB table must be created first
+  # Run: ./scripts/setup-terraform-backend.sh
+  backend "s3" {
+    bucket         = "mytraderpal-terraform-state"
+    key            = "terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    dynamodb_table = "terraform-state-lock"
+  }
 }
 
 provider "aws" {
