@@ -19,11 +19,17 @@ class TestDynamoDBRepository:
         assert client.table_name == 'test-table'
         assert client.table is not None
     
-    @patch.dict(os.environ, {'AWS_REGION': 'us-east-1'})
+    @patch.dict(os.environ, {'AWS_REGION': 'us-east-1'}, clear=False)
     def test_init_default_table_name(self):
         """Test DynamoDBRepository initialization with default table name"""
-        client = DynamoDBRepository()
-        assert client.table_name == 'mtp_app'
+        # Temporarily remove TABLE_NAME to test default
+        original_table_name = os.environ.pop('TABLE_NAME', None)
+        try:
+            client = DynamoDBRepository()
+            assert client.table_name == 'mtp_app'
+        finally:
+            if original_table_name:
+                os.environ['TABLE_NAME'] = original_table_name
     
     @mock_aws
     @patch.dict(os.environ, {'TABLE_NAME': 'test-table', 'AWS_REGION': 'us-east-1'})
