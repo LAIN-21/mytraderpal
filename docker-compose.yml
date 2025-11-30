@@ -3,18 +3,36 @@ services:
     build:
       context: .
       dockerfile: infra/docker/Dockerfile
+    env_file:
+      # Load environment variables from backend .env file
+      - ./src/app/.env
     environment:
-      - TABLE_NAME=mtp_app
-      - DEV_MODE=true
-      - AWS_REGION=us-east-1
+      # Allow override from shell environment
+      - TABLE_NAME=${TABLE_NAME:-mtp_app}
+      - DEV_MODE=${DEV_MODE:-true}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      # Set PYTHONPATH so app module can be imported
+      - PYTHONPATH=/var/task
+      # HTTP Proxy configuration
+      - PROXY_PORT=9000
+      - LAMBDA_RIE_URL=http://localhost:8080
+      # AWS credentials (for local DynamoDB access)
+      # These can be overridden from shell environment
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
     ports:
-      - "9000:8080"
+      - "9000:9000"  # HTTP proxy port (proxy forwards to Lambda RIE on 8080)
     volumes:
       # Mount source code for hot reload
       # Lambda RIE will reload code on each request
-      - ./src/app:/var/task
+      # Mount src/app to /var/task/app so imports work (from app.api.router)
+      - ./src/app:/var/task/app
       # Prevent __pycache__ from being overwritten
       - /var/task/__pycache__
+      # Mount AWS credentials from host (if available)
+      # This allows boto3 to authenticate with AWS
+      - ${HOME}/.aws:/root/.aws:ro
 
   frontend:
     build:

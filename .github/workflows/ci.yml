@@ -138,11 +138,46 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
       
-      - name: Deploy CDK stack
-        working-directory: infra/cdk
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+      
+      - name: Setup Python (for Lambda dependencies)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Deploy with Terraform
+        working-directory: infra/terraform
         run: |
-          npm ci
-          npm run build
-          cdk deploy --require-approval never
-        env:
-          DEV_MODE: ${{ secrets.DEV_MODE || 'false' }}
+          # Create terraform.tfvars from environment variables
+          cat > terraform.tfvars <<EOF
+          aws_region = "${{ secrets.AWS_REGION || 'us-east-1' }}"
+          environment = "production"
+          table_name = "mtp_app"
+          user_pool_name = "mytraderpal-users"
+          cognito_domain_prefix = "mytraderpal-prod-${{ github.run_number }}"
+          dev_mode = "${{ secrets.DEV_MODE || 'false' }}"
+          enable_cognito_auth = ${{ secrets.DEV_MODE == 'false' && 'true' || 'false' }}
+          lambda_function_name = "mytraderpal-api"
+          lambda_runtime = "python3.11"
+          lambda_handler = "main.handler"
+          lambda_timeout = 30
+          api_name = "mytraderpal-api"
+          cognito_callback_urls = ["https://*.amplifyapp.com/login"]
+          cognito_logout_urls = ["https://*.amplifyapp.com/"]
+          cors_allowed_origins = ["https://*.amplifyapp.com"]
+          EOF
+          
+          terraform init
+          terraform plan
+          terraform apply -auto-approve
+      
+      - name: Output Terraform values
+        working-directory: infra/terraform
+        run: |
+          echo "API_URL=$(terraform output -raw api_url)" >> $GITHUB_ENV
+          echo "USER_POOL_ID=$(terraform output -raw user_pool_id)" >> $GITHUB_ENV
+          echo "USER_POOL_CLIENT_ID=$(terraform output -raw user_pool_client_id)" >> $GITHUB_ENV
+          terraform output

@@ -5,38 +5,63 @@ This guide will walk you through deploying the MyTraderPal application to AWS.
 ## Prerequisites
 
 1. **AWS CLI configured** with appropriate permissions
-2. **Node.js 18+** and **npm**
-3. **Python 3.12+** and **pip**
-4. **AWS CDK** installed globally: `npm install -g aws-cdk`
+2. **Terraform** >= 1.5.0 installed
+3. **Python 3.11+** and **pip** (for Lambda dependencies)
 
-## Step 1: Deploy Infrastructure (CDK)
+## Step 1: Deploy Infrastructure (Terraform)
 
-1. **Navigate to CDK directory**:
+### Option 1: Using Make (Recommended)
+
+```bash
+make deploy
+```
+
+This will:
+- Check prerequisites
+- Initialize Terraform
+- Show plan
+- Apply changes
+- Display outputs
+
+### Option 2: Manual Deployment
+
+1. **Navigate to Terraform directory**:
    ```bash
-   cd cdk
+   cd infra/terraform
    ```
 
-2. **Install dependencies**:
+2. **Copy and configure variables**:
    ```bash
-   npm install
+   cp terraform.tfvars.example terraform.tfvars
+   # Edit terraform.tfvars with your configuration
    ```
 
-3. **Bootstrap CDK** (first time only):
+3. **Initialize Terraform**:
    ```bash
-   cdk bootstrap
+   terraform init
    ```
 
-4. **Deploy the stack**:
+4. **Review the plan**:
    ```bash
-   cdk deploy
+   terraform plan
    ```
 
-5. **Note the outputs** from the deployment:
-   - `ApiUrl`: Your API Gateway URL
-   - `UserPoolId`: Cognito User Pool ID
-   - `UserPoolClientId`: Cognito User Pool Client ID
-   - `CognitoDomain`: Cognito domain name
-   - `TableName`: DynamoDB table name
+5. **Deploy the infrastructure**:
+   ```bash
+   terraform apply
+   ```
+
+6. **Get outputs**:
+   ```bash
+   terraform output
+   ```
+
+   Outputs include:
+   - `api_url`: Your API Gateway URL
+   - `user_pool_id`: Cognito User Pool ID
+   - `user_pool_client_id`: Cognito User Pool Client ID
+   - `cognito_domain`: Cognito domain name
+   - `table_name`: DynamoDB table name
 
 ## Step 2: Configure Frontend
 

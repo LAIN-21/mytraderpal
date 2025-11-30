@@ -60,9 +60,13 @@ coverage.xml
 .github/workflows/
 
 # Infrastructure
-infra/
+infra/cdk/
+infra/terraform/
 cdk.out/
 *.template.json
+# Allow infra/docker files needed for Docker builds
+!infra/docker/
+infra/docker/*.md
 
 # Monitoring
 monitoring/

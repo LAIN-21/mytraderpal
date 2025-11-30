@@ -19,13 +19,28 @@ export default function LoginPage() {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // Check if Cognito is configured
+      const userPoolId = import.meta.env.VITE_USER_POOL_ID || ''
+      const userPoolClientId = import.meta.env.VITE_USER_POOL_CLIENT_ID || ''
+      
+      // If auth is not configured, redirect to home (dev mode)
+      if (!userPoolId || !userPoolClientId) {
+        navigate('/')
+        return
+      }
+      
       try {
         const session = await fetchAuthSession()
         if (session.tokens?.idToken) {
           navigate('/')
         }
+        // If no session, stay on login page
       } catch (error) {
         // User is not authenticated, show login form
+        // In dev mode, allow them to proceed without login
+        if (import.meta.env.DEV) {
+          // Don't redirect - let them use the login form or navigate manually
+        }
       }
     }
 

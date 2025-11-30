@@ -2,13 +2,56 @@
 
 A trading journal application for tracking trades, strategies, and market observations.
 
+## 🚀 Quick Start
+
+Get up and running in 2 commands:
+
+```bash
+# 1. Install dependencies and setup environment
+make install
+
+# 2. Start frontend and backend
+make start
+```
+
+That's it! Your application will be running at:
+- **Frontend**: http://localhost:3000
+- **Backend**: http://localhost:9000
+
+### Prerequisites
+
+- **Docker Desktop** installed and running
+- **Make** (usually pre-installed on macOS/Linux)
+
+### Verify Setup
+
+```bash
+# Check if everything is working
+make verify
+
+# View logs
+make logs
+
+# Stop containers
+make stop
+```
+
+### Troubleshooting
+
+If you encounter issues:
+1. Ensure Docker Desktop is running
+2. Check ports 3000 and 9000 are not in use
+3. Run `make clean` to reset and try again
+
+---
+
 ## What it does
 
 Record daily trading notes with direction, session, and risk tracking. Create and manage trading strategies with market specifications. Generate reports on hit/miss performance and session analysis.
 
 ## Architecture
 
-API Gateway → Lambda → DynamoDB with Cognito authentication. Infrastructure defined in AWS CDK.
+API Gateway → Lambda → DynamoDB with Cognito authentication. Infrastructure defined in Terraform.
 
 **Modern Architecture:**
 - Layered architecture (API → Services → Repositories)
@@ -20,11 +63,15 @@ API Gateway → Lambda → DynamoDB with Cognito authentication. Infrastructure 
 
 ## Requirements
 
+**For Quick Start (Recommended):**
+- **Docker Desktop** (includes Docker and Docker Compose)
+- **Make** (usually pre-installed)
+
+**For Manual Setup:**
 - **Python 3.11+** (backend)
-- **Node.js 18+** (frontend/CDK)
+- **Node.js 18+** (frontend)
 - **AWS CLI** (for deployment)
-- **AWS CDK v2** (for deployment)
-- **Docker** (for containerization, optional)
+- **Terraform** >= 1.5.0 (for infrastructure)
 
 **OS Notes:** Use `source .venv/bin/activate` on macOS/Linux, `.venv\Scripts\activate` on Windows.
 
@@ -66,7 +113,7 @@ mytraderpal/
 │   ├── unit/               # Unit tests
 │   └── integration/        # Integration tests
 ├── infra/
-│   ├── cdk/                # AWS CDK infrastructure
+│   ├── terraform/          # Terraform infrastructure
 │   └── docker/             # Docker files
 ├── docs/                   # Documentation
 │   ├── SDLC.md            # SDLC model explanation
@@ -89,7 +136,9 @@ mytraderpal/
 └── README.md
 ```
 
-## Setup
+## Manual Setup (Alternative)
+
+If you prefer not to use Docker, you can set up manually:
 
 ### Backend
 
@@ -112,13 +161,44 @@ npm install
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill in your values:
+The project uses environment variables for both frontend and backend configuration.
 
+### Backend Environment Variables
+
+**Location:** `src/app/.env`
+
+**Required variables:**
+- `TABLE_NAME` - DynamoDB table name (default: `mtp_app`)
+- `DEV_MODE` - Enable development mode to bypass auth (default: `true`)
+- `AWS_REGION` - AWS region (default: `us-east-1`)
+
+**Setup:**
 ```bash
-cp .env.example .env
+# Copy template
+cp src/app/.env.example src/app/.env
+
+# Edit if needed (defaults work for local development)
 ```
 
-See `.env.example` for all required variables.
+### Frontend Environment Variables
+
+**Location:** `src/frontend-react/.env`
+
+**Required variables:**
+- `VITE_API_URL` - Backend API URL (default: `http://localhost:9000`)
+- `VITE_USER_POOL_ID` - Cognito User Pool ID (optional for dev mode)
+- `VITE_USER_POOL_CLIENT_ID` - Cognito Client ID (optional for dev mode)
+- `VITE_AWS_REGION` - AWS region (default: `us-east-1`)
+
+**Setup:**
+```bash
+# Copy template
+cp src/frontend-react/.env.example src/frontend-react/.env
+
+# Edit with your Cognito values (optional for local dev)
+```
+
+**Note:** The `make install` command automatically creates both `.env` files from templates.
 
 ## Running
 
@@ -247,7 +327,7 @@ The project includes a GitHub Actions CI/CD pipeline (`.github/workflows/ci.yml`
 1. **Tests Backend**: Runs pytest with coverage (fails if < 70%)
 2. **Tests Frontend**: Lints and builds React app (Vite)
 3. **Builds Docker Images**: Creates container images
-4. **Deploys** (main branch only): Deploys CDK stack to AWS
+4. **Deploys** (main branch only): Deploys infrastructure with Terraform to AWS
 
 ### Setup CI/CD
 
@@ -333,18 +413,36 @@ docker run -d -p 3001:3000 \
 ### Manual Deployment
 
 ```bash
-cd infra/cdk
-npm install
-cdk synth
-cdk bootstrap  # First time only
-cdk deploy MyTraderPalStack
+# Deploy infrastructure with Terraform
+make deploy
+
+# Or manually:
+cd infra/terraform
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your configuration
+terraform init
+terraform plan
+terraform apply
 ```
 
-Find API URL and Cognito IDs in CDK outputs.
+Get API URL and Cognito IDs from Terraform outputs:
+```bash
+terraform output
+```
 
 ### Automated Deployment
 
-Deployment happens automatically via CI/CD when pushing to `main` branch (after all tests pass).
+Deployment happens automatically via CI/CD when pushing to `main` branch (after all tests pass). The pipeline uses Terraform to deploy infrastructure.
+
+### Terraform Commands
+
+```bash
+make terraform-init    # Initialize Terraform
+make terraform-plan    # Plan changes
+make terraform-apply   # Apply changes
+make terraform-output  # Show outputs
+make terraform-destroy # Destroy infrastructure (careful!)
+```
 
 ## API Summary
 
