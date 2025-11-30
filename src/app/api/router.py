@@ -84,6 +84,7 @@ def route_request(event: Dict[str, Any]) -> Dict[str, Any]:
                 user_id = get_user_id_from_event(event)
             except PermissionError:
                 return error_response(401, 'Unauthorized', origin)
+            # Any other exception will propagate to outer try-except and return 500
         
         # Route to appropriate handler
         if path == '/v1/health' and http_method == 'GET':

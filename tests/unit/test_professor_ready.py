@@ -512,11 +512,25 @@ class TestProfessorReady:
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
         
-        event = self._make_event('GET', '/v1/notes', 'test-user')
-        result = handler(event, None)
-        assert result['statusCode'] == 500
-        body = json.loads(result['body'])
-        assert 'Internal server error' in body['message']
+        # Temporarily disable dev mode so get_user_id_from_event is actually called
+        original_dev_mode = os.environ.get('DEV_MODE')
+        os.environ['DEV_MODE'] = 'false'
+        
+        try:
+            # Create event without dev user header so get_user_id_from_event is actually called
+            event = {
+                'httpMethod': 'GET',
+                'path': '/v1/notes',
+                'headers': {'Content-Type': 'application/json'},
+                'queryStringParameters': {}
+            }
+            result = handler(event, None)
+            assert result['statusCode'] == 500
+            body = json.loads(result['body'])
+            assert 'Internal server error' in body['message']
+        finally:
+            if original_dev_mode:
+                os.environ['DEV_MODE'] = original_dev_mode
     
     # ==================== CORS TESTS ====================
     

@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { AuthGuard } from './lib/auth-guard.tsx'
+import { AuthGuard } from './lib/auth-guard'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import NotesPage from './pages/NotesPage'
