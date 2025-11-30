@@ -226,6 +226,24 @@ jobs:
           lambda_image_uri = "$LAMBDA_IMAGE_URI"
           EOF
           
+          # Import existing DynamoDB table if it exists (idempotent)
+          AWS_REGION=${{ secrets.AWS_REGION || 'us-east-1' }}
+          TABLE_NAME="mtp_app"
+          
+          # Check if table exists in AWS
+          if aws dynamodb describe-table --table-name $TABLE_NAME --region $AWS_REGION >/dev/null 2>&1; then
+            echo "Table $TABLE_NAME exists in AWS"
+            # Check if it's already in Terraform state
+            if terraform state show module.dynamodb.aws_dynamodb_table.main >/dev/null 2>&1; then
+              echo "Table $TABLE_NAME already in Terraform state"
+            else
+              echo "Importing table $TABLE_NAME into Terraform state..."
+              terraform import module.dynamodb.aws_dynamodb_table.main $TABLE_NAME || echo "Import failed, but continuing (may already be in state or configuration mismatch)"
+            fi
+          else
+            echo "Table $TABLE_NAME does not exist, will be created"
+          fi
+          
           terraform plan
           terraform apply -auto-approve
       
