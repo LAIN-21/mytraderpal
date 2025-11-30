@@ -22,7 +22,8 @@ class DynamoDBRepository:
     
     def __init__(self):
         self.table_name = os.getenv('TABLE_NAME', 'mtp_app')
-        self.dynamodb = boto3.resource('dynamodb')
+        region = os.getenv('AWS_REGION', 'us-east-1')
+        self.dynamodb = boto3.resource('dynamodb', region_name=region)
         self.table = self.dynamodb.Table(self.table_name)
     
     # ---------- Primitives ----------
@@ -140,6 +141,22 @@ class DynamoDBRepository:
 
 
 # Reusable module-level repository instance (warm Lambda reuse)
-db = DynamoDBRepository()
+# Use lazy initialization to avoid AWS region errors during import
+_db_instance = None
+
+def _get_db():
+    """Get or create the database repository instance (lazy initialization)."""
+    global _db_instance
+    if _db_instance is None:
+        _db_instance = DynamoDBRepository()
+    return _db_instance
+
+# Create a proxy object for backward compatibility
+class _DBProxy:
+    """Proxy object that lazily initializes the database repository."""
+    def __getattr__(self, name):
+        return getattr(_get_db(), name)
+
+db = _DBProxy()
 
 

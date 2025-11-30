@@ -32,6 +32,7 @@ jobs:
           AWS_REGION: us-east-1
           TABLE_NAME: test-table
           DEV_MODE: "true"
+          AWS_DEFAULT_REGION: us-east-1
         run: |
           python -m pytest tests/ \
             --cov=src/app \
